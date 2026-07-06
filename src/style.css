@@ -280,6 +280,118 @@ html, body {
 }
 #magicBtn:active { box-shadow: 0 2px 0 var(--ink); translate: 0 4px; }
 
+#greetBtn {
+  right: 26px;
+  bottom: 112px;
+  width: 62px;
+  height: 62px;
+  font-size: 1.7rem;
+  border-radius: 50%;
+  border: 4px solid var(--ink);
+  background: radial-gradient(circle at 32% 28%, #ffe3f2, var(--pink) 60%, #f570b2);
+  box-shadow: 0 5px 0 var(--ink);
+}
+#greetBtn:active { box-shadow: 0 2px 0 var(--ink); translate: 0 4px; }
+@media (pointer: coarse) {
+  #greetBtn { bottom: 118px; }
+}
+
+/* ---------------- enter-house prompt ---------------- */
+#enterPrompt {
+  bottom: 116px;
+  left: 50%;
+  translate: -50% 0;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--sun);
+  border: 3.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 10px 22px;
+  box-shadow: 0 5px 0 var(--ink);
+  animation: bounce-prompt 1s ease-in-out infinite;
+  white-space: nowrap;
+}
+#enterPrompt:active { box-shadow: 0 2px 0 var(--ink); translate: -50% 4px; }
+@keyframes bounce-prompt {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* ---------------- build-your-house bar ---------------- */
+#buildBar {
+  left: 50%;
+  bottom: 18px;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(640px, 96vw);
+  background: rgba(255, 253, 248, 0.94);
+  border: 3.5px solid var(--ink);
+  border-radius: 22px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 0 rgba(74, 59, 92, 0.28);
+}
+#buildHint {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+#toolRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.tool {
+  font-size: 1.4rem;
+  width: 46px;
+  height: 46px;
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.1s, box-shadow 0.1s;
+}
+.tool:hover { transform: translateY(-2px); }
+.tool.selected {
+  background: var(--sky);
+  box-shadow: 2px 3px 0 var(--ink);
+  transform: translateY(-2px);
+}
+.build-actions { display: flex; gap: 8px; align-items: center; }
+#undoBtn, #clearBtn {
+  font-size: 1.3rem;
+  width: 46px;
+  height: 46px;
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  cursor: pointer;
+}
+#exitBtn {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, var(--coral), #f56b6b);
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 9px 18px;
+  box-shadow: 0 4px 0 var(--ink);
+}
+#exitBtn:active { box-shadow: 0 1px 0 var(--ink); translate: 0 3px; }
+
+/* while decorating a house, hide the outdoor controls */
+body.building #magicBtn,
+body.building #greetBtn,
+body.building #hint,
+body.building #newBtn,
+body.building #enterPrompt { display: none !important; }
+
 /* virtual joystick — only shown on touch devices */
 #joy {
   display: none;

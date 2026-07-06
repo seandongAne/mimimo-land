@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toon, rand, pick } from './utils.js';
 
-export const WORLD_RADIUS = 58; // how far the player can wander
+export const WORLD_RADIUS = 62; // how far the player can wander
 
 const FLOWER_COLORS = ['#ff8fc7', '#ffe066', '#ffffff', '#ffb46b', '#ff8f8f'];
 

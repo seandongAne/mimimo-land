@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, rand, pick, shadowify, colliders } from './utils.js';
+import { toon, rand, pick, shadowify, colliders, treeKeepOut } from './utils.js';
 
 const CANOPY_PURPLES = ['#9b6ff0', '#8657e8', '#b48cff', '#a578f5'];
 
@@ -37,11 +37,28 @@ function lollipopTree() {
   return tree;
 }
 
-/** Purple candy trees scattered around the meadow. Returns an updater (canopy sway). */
-export function makeTrees(scene, count = 26) {
+/** True if (x,z) sits inside a district we want to keep tree-free. */
+function inKeepOut(x, z, margin = 0) {
+  return treeKeepOut.some((k) => (x - k.x) ** 2 + (z - k.z) ** 2 < (k.r + margin) ** 2);
+}
+
+function plantTree(scene, trees, x, z, scaleRange = [0.85, 1.5]) {
+  const tree = Math.random() < 0.75 ? blobTree() : lollipopTree();
+  tree.position.set(x, 0, z);
+  tree.rotation.y = rand(0, Math.PI * 2);
+  tree.scale.setScalar(rand(scaleRange[0], scaleRange[1]));
+  tree.userData.phase = rand(0, Math.PI * 2);
+  shadowify(tree);
+  scene.add(tree);
+  trees.push(tree);
+  colliders.push({ x, z, r: 0.9 * tree.scale.x });
+}
+
+/** Purple candy trees scattered around the meadow + a denser forest grove. */
+export function makeTrees(scene, count = 30) {
   const trees = [];
   let attempts = 0;
-  while (trees.length < count && attempts < 400) {
+  while (trees.length < count && attempts < 500) {
     attempts++;
     const a = rand(0, Math.PI * 2);
     const d = rand(16, 60);
@@ -50,18 +67,25 @@ export function makeTrees(scene, count = 26) {
 
     // keep clear of houses and other obstacles
     if (colliders.some((c) => (x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + 3) ** 2)) continue;
+    // keep parks / plazas / beaches open
+    if (inKeepOut(x, z, 2)) continue;
     // keep the spawn path clear
     if (Math.abs(x) < 6 && z > -12 && z < 10) continue;
 
-    const tree = Math.random() < 0.75 ? blobTree() : lollipopTree();
-    tree.position.set(x, 0, z);
-    tree.rotation.y = rand(0, Math.PI * 2);
-    tree.scale.setScalar(rand(0.85, 1.5));
-    tree.userData.phase = rand(0, Math.PI * 2);
-    shadowify(tree);
-    scene.add(tree);
-    trees.push(tree);
-    colliders.push({ x, z, r: 0.9 * tree.scale.x });
+    plantTree(scene, trees, x, z);
+  }
+
+  // a cozy forest grove tucked to the south-west
+  const grove = { x: -30, z: 26 };
+  let planted = 0;
+  attempts = 0;
+  while (planted < 22 && attempts < 300) {
+    attempts++;
+    const gx = grove.x + rand(-11, 11);
+    const gz = grove.z + rand(-11, 11);
+    if (colliders.some((c) => (gx - c.x) ** 2 + (gz - c.z) ** 2 < (c.r + 1.6) ** 2)) continue;
+    plantTree(scene, trees, gx, gz, [1.0, 1.7]);
+    planted++;
   }
 
   return function update(dt, t) {

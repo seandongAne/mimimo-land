@@ -5,11 +5,13 @@ const joyVec = { x: 0, y: 0 };
  * Keyboard (WASD / arrows, space for magic) + a virtual joystick
  * for touch screens. getMove() returns {x, z} in world space.
  */
-export function initInput({ onMagic }) {
+export function initInput({ onMagic, onGreet, onEnter }) {
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
     if (e.code === 'Space') e.preventDefault();
     if (e.code === 'Space' || e.code === 'KeyM') onMagic();
+    if (e.code === 'KeyH' && onGreet) onGreet();
+    if (e.code === 'KeyE' && onEnter) onEnter();
     keys.add(e.code);
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));

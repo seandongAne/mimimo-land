@@ -3,6 +3,9 @@ import * as THREE from 'three';
 /** Round obstacles ({x, z, r}) that the player gets pushed out of. */
 export const colliders = [];
 
+/** Soft zones ({x, z, r}) the tree scatterer avoids (parks, plazas, beach...). */
+export const treeKeepOut = [];
+
 let gradientMap = null;
 
 /** Shared 3-step gradient so every toon material shades the same way. */
