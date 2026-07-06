@@ -1,0 +1,315 @@
+/* ================================================================
+   MIMIMO Land — candy sticker storybook UI
+   ================================================================ */
+:root {
+  --ink: #4a3b5c;
+  --cream: #fff8ef;
+  --paper: #fffdf8;
+  --pink: #ff8fc7;
+  --peach: #ffb46b;
+  --sun: #ffe066;
+  --mint: #8ee08e;
+  --sky: #7ad0ff;
+  --lav: #b79cff;
+  --coral: #ff8f8f;
+  --shadow: #e8b7d8;
+  font-size: 16px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: "Fredoka", "Comic Sans MS", sans-serif;
+  color: var(--ink);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hidden { display: none !important; }
+
+/* ---------------- wordmark ---------------- */
+.wordmark {
+  position: fixed;
+  top: 4vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: clamp(2.4rem, 8vw, 5.2rem);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 10;
+}
+.wordmark span {
+  display: inline-block;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0.09em 0.11em 0 var(--ink);
+  animation: pop-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+             float-bob 3.4s ease-in-out infinite;
+}
+.wordmark .gap { width: 0.5em; }
+.wordmark span:nth-child(11n + 1)  { color: var(--pink);  rotate: -6deg; animation-delay: 0.00s, 0.0s; }
+.wordmark span:nth-child(11n + 2)  { color: var(--sun);   rotate:  4deg; animation-delay: 0.06s, 0.2s; }
+.wordmark span:nth-child(11n + 3)  { color: var(--sky);   rotate: -3deg; animation-delay: 0.12s, 0.4s; }
+.wordmark span:nth-child(11n + 4)  { color: var(--mint);  rotate:  5deg; animation-delay: 0.18s, 0.6s; }
+.wordmark span:nth-child(11n + 5)  { color: var(--lav);   rotate: -5deg; animation-delay: 0.24s, 0.8s; }
+.wordmark span:nth-child(11n + 6)  { color: var(--peach); rotate:  3deg; animation-delay: 0.30s, 1.0s; }
+.wordmark span:nth-child(11n + 8)  { color: var(--coral); rotate: -4deg; animation-delay: 0.36s, 1.2s; }
+.wordmark span:nth-child(11n + 9)  { color: var(--sky);   rotate:  6deg; animation-delay: 0.42s, 1.4s; }
+.wordmark span:nth-child(11n + 10) { color: var(--pink);  rotate: -3deg; animation-delay: 0.48s, 1.6s; }
+.wordmark span:nth-child(11n)      { color: var(--sun);   rotate:  4deg; animation-delay: 0.54s, 1.8s; }
+
+@keyframes pop-in {
+  from { transform: scale(0) translateY(40px); }
+  to   { transform: scale(1) translateY(0); }
+}
+@keyframes float-bob {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -6px; }
+}
+
+/* ---------------- creator panel ---------------- */
+#creator {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  padding: 3vh 4vw;
+  pointer-events: none;
+}
+
+.panel {
+  pointer-events: auto;
+  background: var(--paper);
+  border: 4px solid var(--ink);
+  border-radius: 28px;
+  box-shadow: 10px 12px 0 rgba(74, 59, 92, 0.28);
+  padding: 22px 24px;
+  width: min(400px, 92vw);
+  max-height: 72vh;
+  overflow-y: auto;
+  animation: panel-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s backwards;
+}
+@keyframes panel-in {
+  from { transform: translateY(120%) rotate(-4deg); }
+  to   { transform: translateY(0) rotate(0); }
+}
+
+.panel-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.step-label {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 14px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background: var(--sun);
+  border: 2.5px solid var(--ink);
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+/* species chips */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.chip:hover { transform: translateY(-2px) rotate(-2deg); }
+.chip.selected {
+  background: var(--pink);
+  color: #fff;
+  box-shadow: 3px 4px 0 var(--ink);
+  transform: translateY(-2px);
+}
+
+/* color swatches */
+.swatch-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.swatch:hover { transform: scale(1.15) rotate(8deg); }
+.swatch.selected {
+  box-shadow: 0 0 0 4px var(--paper), 0 0 0 7px var(--ink);
+  transform: scale(1.1);
+}
+
+/* name row */
+.name-row { display: flex; gap: 8px; }
+#nameInput {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 8px 14px;
+  outline: none;
+}
+#nameInput:focus { background: #fff; box-shadow: 3px 4px 0 var(--shadow); }
+#diceBtn {
+  font-size: 1.3rem;
+  background: var(--sun);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  width: 48px;
+  cursor: pointer;
+}
+
+/* buttons */
+.squishy {
+  font-family: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.squishy:hover { animation: wobble 0.45s ease; }
+.squishy:active { transform: scale(0.88) !important; }
+@keyframes wobble {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-4deg) scale(1.06); }
+  75% { transform: rotate(4deg) scale(1.06); }
+}
+
+#startBtn {
+  margin-top: 20px;
+  width: 100%;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, var(--pink), #f570b2);
+  border: 4px solid var(--ink);
+  border-radius: 999px;
+  padding: 12px 0;
+  box-shadow: 0 6px 0 var(--ink);
+}
+#startBtn:active { box-shadow: 0 2px 0 var(--ink); translate: 0 4px; }
+
+/* ---------------- HUD ---------------- */
+#hud > * { position: fixed; z-index: 5; }
+
+#badge {
+  top: 18px;
+  left: 18px;
+  background: var(--paper);
+  border: 3.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  box-shadow: 4px 5px 0 rgba(74, 59, 92, 0.25);
+  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+#newBtn {
+  top: 18px;
+  right: 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 8px 14px;
+  box-shadow: 3px 4px 0 rgba(74, 59, 92, 0.25);
+}
+
+#hint {
+  bottom: 16px;
+  left: 50%;
+  translate: -50% 0;
+  background: rgba(255, 253, 248, 0.85);
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#magicBtn {
+  right: 22px;
+  bottom: 26px;
+  width: 76px;
+  height: 76px;
+  font-size: 2rem;
+  border-radius: 50%;
+  border: 4px solid var(--ink);
+  background: radial-gradient(circle at 32% 28%, #fff0a8, var(--sun) 55%, var(--peach));
+  box-shadow: 0 6px 0 var(--ink), 0 0 24px rgba(255, 224, 102, 0.7);
+}
+#magicBtn:active { box-shadow: 0 2px 0 var(--ink); translate: 0 4px; }
+
+/* virtual joystick — only shown on touch devices */
+#joy {
+  display: none;
+  left: 26px;
+  bottom: 26px;
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  border: 3.5px solid rgba(74, 59, 92, 0.55);
+  background: rgba(255, 253, 248, 0.35);
+}
+#joyNub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 3.5px solid var(--ink);
+  translate: -50% -50%;
+  box-shadow: 0 3px 0 rgba(74, 59, 92, 0.35);
+}
+@media (pointer: coarse) {
+  #joy { display: block; }
+  #hint { bottom: 156px; }
+}
+
+/* small screens: tuck the panel lower, shrink wordmark spacing */
+@media (max-width: 600px) {
+  #creator { padding: 2vh 3vw; }
+  .panel { padding: 16px 18px; max-height: 62vh; }
+}

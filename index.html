@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>MIMIMO Land</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <!-- ===== Character creator ===== -->
+  <div id="creator">
+    <h1 class="wordmark" aria-label="MIMIMO Land">
+      <span>M</span><span>I</span><span>M</span><span>I</span><span>M</span><span>O</span>
+      <span class="gap"></span>
+      <span>L</span><span>A</span><span>N</span><span>D</span>
+    </h1>
+
+    <div class="panel">
+      <p class="panel-title">Make your mimimo!</p>
+
+      <p class="step-label"><span class="step-num">1</span> Who are you?</p>
+      <div id="speciesRow" class="chip-row"></div>
+
+      <p class="step-label"><span class="step-num">2</span> Pick your color</p>
+      <div id="colorRow" class="swatch-row"></div>
+
+      <p class="step-label"><span class="step-num">3</span> Your name</p>
+      <div class="name-row">
+        <input id="nameInput" type="text" maxlength="12" autocomplete="off" spellcheck="false" />
+        <button id="diceBtn" class="squishy" title="Random name">🎲</button>
+      </div>
+
+      <button id="startBtn" class="squishy">Let's&nbsp;go! ✨</button>
+    </div>
+  </div>
+
+  <!-- ===== In-game HUD ===== -->
+  <div id="hud" class="hidden">
+    <div id="badge"></div>
+    <button id="newBtn" class="squishy">🌟 New mimimo</button>
+    <div id="hint"></div>
+    <button id="magicBtn" class="squishy" title="Magic!">✨</button>
+    <div id="joy"><div id="joyNub"></div></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
