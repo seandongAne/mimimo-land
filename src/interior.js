@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, lighten, darken, rand, pick, shadowify } from './utils.js';
+import { toon, lighten, darken, pick, shadowify } from './utils.js';
 import { buildMimimo, animateMimimo, disposeMimimo } from './mimimo.js';
 
 const ROOM = { halfX: 7, backZ: -6, frontZ: 6, wallH: 6 };
@@ -218,6 +218,8 @@ export function makeInterior() {
   let player = null;
   let houseKey = 'home';
   let tool = 'bed';
+  let placementRotation = 0;
+  let sleeping = false;
   const items = []; // { group, kind, x, z, ry }
   const raycaster = new THREE.Raycaster();
 
@@ -258,12 +260,23 @@ export function makeInterior() {
     player = buildMimimo(config);
     player.position.set(2, 0, 3);
     player.rotation.y = Math.PI;
+    player.rotation.z = 0;
+    sleeping = false;
     scene.add(player);
     loadItems();
   }
 
   function setTool(kind) { if (FURNITURE[kind]) tool = kind; }
   function getTool() { return tool; }
+
+  function rotatePlacement() {
+    placementRotation = (placementRotation + Math.PI / 4) % (Math.PI * 2);
+    return Math.round(THREE.MathUtils.radToDeg(placementRotation));
+  }
+
+  function getPlacementRotation() {
+    return Math.round(THREE.MathUtils.radToDeg(placementRotation));
+  }
 
   function undo() {
     const it = items.pop();
@@ -280,15 +293,39 @@ export function makeInterior() {
     let { x, z } = hit[0].point;
     x = Math.max(-ROOM.halfX + 0.6, Math.min(ROOM.halfX - 0.6, x));
     z = Math.max(ROOM.backZ + 0.6, Math.min(ROOM.frontZ - 0.4, z));
-    addItem(tool, x, z, rand(0, Math.PI * 2));
+    addItem(tool, x, z, placementRotation);
     return true;
+  }
+
+  function getSleepStatus() {
+    const beds = items.filter((it) => it.kind === 'bed');
+    const nearestBed = player
+      ? beds.find((it) => Math.hypot(player.position.x - it.x, player.position.z - it.z) < 2.7)
+      : null;
+    return { hasBed: beds.length > 0, nearBed: Boolean(nearestBed), bed: nearestBed };
+  }
+
+  function startSleep() {
+    const { bed } = getSleepStatus();
+    if (!player || !bed) return false;
+    sleeping = true;
+    player.position.set(bed.x, 0.95, bed.z);
+    player.rotation.set(0, bed.ry, -Math.PI / 2);
+    return true;
+  }
+
+  function wake() {
+    if (!player) return;
+    sleeping = false;
+    player.rotation.z = 0;
+    player.position.y = 0;
   }
 
   const PLAYER_SPEED = 4.2;
   let heading = Math.PI;
 
   function update(dt, t, move) {
-    if (!player) return;
+    if (!player || sleeping) return;
     const moving = Math.hypot(move.x, move.z) > 0.05;
     if (moving) {
       player.position.x += move.x * PLAYER_SPEED * dt;
@@ -311,5 +348,20 @@ export function makeInterior() {
 
   function getPlayerPos() { return player ? player.position : new THREE.Vector3(); }
 
-  return { scene, enter, update, tapPlace, setTool, getTool, undo, clearAll, getPlayerPos };
+  return {
+    scene,
+    enter,
+    update,
+    tapPlace,
+    setTool,
+    getTool,
+    undo,
+    clearAll,
+    rotatePlacement,
+    getPlacementRotation,
+    getSleepStatus,
+    startSleep,
+    wake,
+    getPlayerPos,
+  };
 }

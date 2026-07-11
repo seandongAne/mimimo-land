@@ -33,7 +33,10 @@
       <p class="step-label"><span class="step-num">3</span> Pick your color</p>
       <div id="colorRow" class="swatch-row"></div>
 
-      <p class="step-label"><span class="step-num">4</span> Your name</p>
+      <p class="step-label"><span class="step-num">4</span> Pick your powers <small>(choose more than one!)</small></p>
+      <div id="powerChoiceRow" class="chip-row"></div>
+
+      <p class="step-label"><span class="step-num">5</span> Your name</p>
       <div class="name-row">
         <input id="nameInput" type="text" maxlength="12" autocomplete="off" spellcheck="false" />
         <button id="diceBtn" class="squishy" title="Random name">🎲</button>
@@ -47,9 +50,11 @@
   <div id="hud" class="hidden">
     <div id="badge"></div>
     <button id="newBtn" class="squishy">🌟 New mimimo</button>
+    <button id="timeBtn" class="squishy" title="Jump to the next time of day"></button>
     <div id="hint"></div>
     <button id="greetBtn" class="squishy" title="Say hi! (H)">👋</button>
-    <button id="magicBtn" class="squishy" title="Magic! (SPACE)">✨</button>
+    <button id="magicBtn" class="squishy" title="Use power (SPACE)">✨</button>
+    <div id="powerTray" aria-label="Selected powers"></div>
     <div id="joy"><div id="joyNub"></div></div>
 
     <button id="enterPrompt" class="squishy hidden"></button>
@@ -59,10 +64,39 @@
       <p id="buildHint">🔨 Tap the floor to place — walk with WASD / the wheel</p>
       <div id="toolRow"></div>
       <div class="build-actions">
+        <button id="rotateBtn" class="squishy" title="Rotate the next furniture (R)">↻ 0°</button>
         <button id="undoBtn" class="squishy" title="Undo">↩️</button>
         <button id="clearBtn" class="squishy" title="Clear the room">🧹</button>
+        <button id="sleepBtn" class="squishy" disabled>🛏️ Place a bed</button>
         <button id="exitBtn" class="squishy">🚪 Leave</button>
       </div>
+    </div>
+
+    <!-- shop interior controls -->
+    <div id="shopBar" class="hidden">
+      <p id="shopTitle"></p>
+      <div id="productRow"></div>
+      <div class="shop-actions">
+        <span id="cartCount">🛒 Cart: 0</span>
+        <button id="checkoutBtn" class="squishy">💖 Buy cart</button>
+        <button id="shopExitBtn" class="squishy">🚪 Leave shop</button>
+      </div>
+      <p id="shopFeedback" aria-live="polite"></p>
+    </div>
+
+    <!-- underwater controls -->
+    <div id="underwaterBar" class="hidden">
+      <span>🤿 Swim with WASD / the wheel</span>
+      <button id="diveExitBtn" class="squishy">🪜 Climb out</button>
+    </div>
+  </div>
+
+  <div id="sleepOverlay" class="hidden" role="dialog" aria-modal="true" aria-label="Sleeping">
+    <div class="sleep-card">
+      <div class="sleep-moon">🌙</div>
+      <p>Good night, mimimo…</p>
+      <div class="sleep-zzzs">Z&nbsp; z&nbsp; z</div>
+      <button id="wakeBtn" class="squishy">🌅 Wake up</button>
     </div>
   </div>
 

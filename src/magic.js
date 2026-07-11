@@ -1,8 +1,16 @@
 import * as THREE from 'three';
 import { makeFlower } from './world.js';
-import { rand, pick } from './utils.js';
+import { rand, pick, emojiSprite } from './utils.js';
 
 const SPARKLE_COLORS = ['#ff8fc7', '#ffe066', '#7ad0ff', '#b79cff', '#8ee08e', '#ffffff'];
+const RAINBOW_COLORS = ['#ff8f8f', '#ffb46b', '#ffe066', '#8ee08e', '#7ad0ff', '#b79cff'];
+
+export const POWERS = {
+  blossom: { label: 'Flower bloom', shortLabel: 'Bloom', emoji: '🌸' },
+  rainbow: { label: 'Rainbow rings', shortLabel: 'Rainbow', emoji: '🌈' },
+  bubbles: { label: 'Bubble float', shortLabel: 'Bubbles', emoji: '🫧' },
+  hearts: { label: 'Heart shower', shortLabel: 'Hearts', emoji: '💖' },
+};
 
 let sparkleTexture = null;
 function getSparkleTexture() {
@@ -33,16 +41,27 @@ export class Magic {
     this.bursts = [];
     this.rings = [];
     this.flowers = [];
+    this.floaters = [];
   }
 
-  cast(position) {
+  cast(position, power = 'blossom') {
     this.spawnBurst(position);
-    this.spawnRing(position);
-    const count = 1 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < count; i++) {
-      const a = rand(0, Math.PI * 2);
-      const d = rand(1.2, 3);
-      this.spawnFlower(position.x + Math.cos(a) * d, position.z + Math.sin(a) * d);
+    if (power === 'rainbow') {
+      RAINBOW_COLORS.forEach((color, i) => this.spawnRing(position, color, 0.55 + i * 0.16));
+    } else if (power === 'bubbles') {
+      this.spawnRing(position, '#bfeaff');
+      for (let i = 0; i < 18; i++) this.spawnBubble(position);
+    } else if (power === 'hearts') {
+      this.spawnRing(position, '#ff8fc7');
+      for (let i = 0; i < 14; i++) this.spawnHeart(position);
+    } else {
+      this.spawnRing(position, '#ff9fce');
+      const count = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        const a = rand(0, Math.PI * 2);
+        const d = rand(1.2, 3);
+        this.spawnFlower(position.x + Math.cos(a) * d, position.z + Math.sin(a) * d);
+      }
     }
   }
 
@@ -82,15 +101,53 @@ export class Magic {
     this.bursts.push({ points, velocities, life: 0, maxLife: 1.3 });
   }
 
-  spawnRing(position) {
+  spawnRing(position, color = '#ff9fce', radius = 0.6) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.6, 0.06, 8, 40),
-      new THREE.MeshBasicMaterial({ color: '#ff9fce', transparent: true, opacity: 0.9 })
+      new THREE.TorusGeometry(radius, 0.06, 8, 40),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(position.x, 0.12, position.z);
     this.scene.add(ring);
     this.rings.push({ ring, life: 0, maxLife: 0.7 });
+  }
+
+  spawnBubble(position) {
+    const size = rand(0.14, 0.38);
+    const bubble = new THREE.Mesh(
+      new THREE.SphereGeometry(size, 12, 9),
+      new THREE.MeshBasicMaterial({
+        color: pick(['#ffffff', '#bfeaff', '#e5d7ff']),
+        transparent: true,
+        opacity: 0.55,
+        wireframe: Math.random() < 0.35,
+        depthWrite: false,
+      })
+    );
+    bubble.position.set(position.x + rand(-1, 1), position.y + rand(0.3, 1.4), position.z + rand(-1, 1));
+    this.scene.add(bubble);
+    this.floaters.push({
+      object: bubble,
+      velocity: new THREE.Vector3(rand(-0.35, 0.35), rand(1.2, 2.5), rand(-0.35, 0.35)),
+      life: 0,
+      maxLife: rand(1.2, 2.1),
+      spin: rand(-2, 2),
+      opacity: 0.55,
+    });
+  }
+
+  spawnHeart(position) {
+    const heart = emojiSprite(pick(['💖', '💗', '💕']), rand(0.45, 0.8));
+    heart.position.set(position.x + rand(-0.8, 0.8), position.y + rand(0.5, 1.3), position.z + rand(-0.8, 0.8));
+    this.scene.add(heart);
+    this.floaters.push({
+      object: heart,
+      velocity: new THREE.Vector3(rand(-0.5, 0.5), rand(1.4, 2.7), rand(-0.5, 0.5)),
+      life: 0,
+      maxLife: rand(1.1, 1.8),
+      spin: rand(-2, 2),
+      opacity: 1,
+    });
   }
 
   spawnFlower(x, z) {
@@ -150,6 +207,21 @@ export class Magic {
       const s = 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2);
       f.flower.scale.setScalar(Math.max(0.01, s * f.size));
       if (k >= 1) this.flowers.splice(i, 1);
+    }
+
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i];
+      f.life += dt;
+      f.object.position.addScaledVector(f.velocity, dt);
+      f.object.rotation.z += f.spin * dt;
+      f.object.material.opacity = f.opacity * Math.max(0, 1 - f.life / f.maxLife);
+      if (f.life >= f.maxLife) {
+        this.scene.remove(f.object);
+        if (f.object.geometry) f.object.geometry.dispose();
+        if (f.object.material.map) f.object.material.map.dispose();
+        f.object.material.dispose();
+        this.floaters.splice(i, 1);
+      }
     }
   }
 }

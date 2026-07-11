@@ -130,6 +130,7 @@ const SHOPS = [
  */
 export function makeTown(scene) {
   const center = { x: 39, z: 4 };
+  const doors = [];
   treeKeepOut.push({ x: center.x, z: center.z, r: 22 });
 
   // plaza floor (warm cobble circle)
@@ -153,6 +154,15 @@ export function makeTown(scene) {
     const halfW = (spec.w || 6.4) / 2;
     const halfD = (spec.d || 5) / 2;
     colliders.push({ x: spec.x, z: spec.z, r: Math.max(halfW, halfD) + 0.6 });
+
+    const doorDistance = halfD + 1.25;
+    doors.push({
+      key: spec.key,
+      label: spec.label,
+      emoji: spec.emoji,
+      x: spec.x + Math.sin(shop.rotation.y) * doorDistance,
+      z: spec.z + Math.cos(shop.rotation.y) * doorDistance,
+    });
   }
 
   // market stalls in the plaza
@@ -172,6 +182,7 @@ export function makeTown(scene) {
 
   // signpost welcoming you to town
   scene.add(makeSignpost('🛍️ Town', center.x - 12, center.z - 10));
+  return doors;
 }
 
 /** A wooden post with a floating label — used to mark districts. */

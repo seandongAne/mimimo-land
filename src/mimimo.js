@@ -13,11 +13,13 @@ export const SPECIES = {
   puppy: { label: 'Puppy', emoji: '🐶' },
   bear: { label: 'Bear', emoji: '🐻' },
   foxy: { label: 'Foxy', emoji: '🦊' },
-  ducky: { label: 'Ducky', emoji: '🐥' },
+  ducky: { label: 'Ducky', emoji: '🐥', flies: true },
   blob: { label: 'Blob', emoji: '🫧' },
-  dragon: { label: 'Dragon', emoji: '🐲', mythical: true },
+  squid: { label: 'Squid', emoji: '🦑' },
+  fairy: { label: 'Fairy', emoji: '🧚', mythical: true, flies: true },
+  dragon: { label: 'Dragon', emoji: '🐲', mythical: true, flies: true },
   unicorn: { label: 'Unicorn', emoji: '🦄', mythical: true },
-  phoenix: { label: 'Phoenix', emoji: '🔥', mythical: true },
+  phoenix: { label: 'Phoenix', emoji: '🔥', mythical: true, flies: true },
 };
 
 /** Two body shapes offered in the creator. */
@@ -80,10 +82,16 @@ function addFace(face, { smile = true } = {}) {
   }
 
   if (smile) {
-    const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 8, 16, Math.PI), toon(INK));
-    mouth.position.set(0, 1.13, 0.58);
-    mouth.rotation.z = Math.PI;
-    mouth.rotation.x = -0.25;
+    // A soft, curved "w" gives every mimimo the same kawaii expression.
+    const mouthCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.16, 0.04, 0),
+      new THREE.Vector3(-0.08, -0.045, 0),
+      new THREE.Vector3(0, 0.035, 0),
+      new THREE.Vector3(0.08, -0.045, 0),
+      new THREE.Vector3(0.16, 0.04, 0),
+    ]);
+    const mouth = new THREE.Mesh(new THREE.TubeGeometry(mouthCurve, 24, 0.018, 7, false), toon(INK));
+    mouth.position.set(0, 1.13, 0.61);
     face.add(mouth);
   }
 }
@@ -237,6 +245,17 @@ function addDuckyParts(group, face, bodyMat, color, anim) {
   beak.scale.z = 0.55;
   face.add(beak);
 
+  for (const side of [-1, 1]) {
+    const wingPivot = new THREE.Group();
+    wingPivot.position.set(side * 0.5, 0.78, -0.08);
+    wingPivot.rotation.z = side * 0.45;
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), toon(lighten(color, 0.25)));
+    wing.scale.set(0.25, 0.9, 0.65);
+    wingPivot.add(wing);
+    group.add(wingPivot);
+    wiggler(anim, wingPivot, { amp: 0.38, speed: 8.5 });
+  }
+
   const curl = new THREE.Group();
   curl.position.set(0, 1.82, 0);
   const feather = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.2, 4, 8), toon(lighten(color, 0.4)));
@@ -267,6 +286,70 @@ function addBlobParts(group, face, bodyMat, color, anim) {
   const tail = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), toon(lighten(color, 0.3)));
   tail.position.set(0, 0.45, -0.5);
   group.add(tail);
+}
+
+function addSquidParts(group, face, bodyMat, color, anim) {
+  const mantle = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.78, 16), bodyMat);
+  mantle.position.set(0, 1.86, -0.03);
+  group.add(mantle);
+
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const pivot = new THREE.Group();
+    pivot.position.set(Math.cos(a) * 0.32, 0.28, Math.sin(a) * 0.25);
+    pivot.rotation.z = Math.cos(a) * 0.28;
+    pivot.rotation.x = Math.sin(a) * 0.28;
+    const tentacle = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.34, 5, 9), toon(lighten(color, i % 2 ? 0.08 : 0.2)));
+    tentacle.position.y = -0.2;
+    pivot.add(tentacle);
+    group.add(pivot);
+    wiggler(anim, pivot, { amp: 0.22, speed: 4 + i * 0.18 });
+  }
+
+  for (const side of [-1, 1]) {
+    const fin = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), toon(lighten(color, 0.3)));
+    fin.position.set(side * 0.52, 1.62, -0.08);
+    fin.scale.set(0.55, 1, 0.35);
+    group.add(fin);
+  }
+}
+
+function addFairyParts(group, face, bodyMat, color, anim) {
+  const wingMat = new THREE.MeshBasicMaterial({
+    color: '#dff8ff',
+    transparent: true,
+    opacity: 0.72,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  for (const side of [-1, 1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.42, 1.0, -0.42);
+    pivot.rotation.z = side * 0.45;
+
+    const upper = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10), wingMat);
+    upper.position.set(side * 0.18, 0.3, 0);
+    upper.scale.set(0.35, 1.05, 0.08);
+    pivot.add(upper);
+
+    const lower = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 9), wingMat);
+    lower.position.set(side * 0.13, -0.25, 0);
+    lower.scale.set(0.32, 0.9, 0.08);
+    pivot.add(lower);
+
+    group.add(pivot);
+    wiggler(anim, pivot, { amp: 0.5, speed: 10 });
+  }
+
+  const crown = new THREE.Group();
+  crown.position.set(0, 1.9, 0);
+  for (let i = -1; i <= 1; i++) {
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), toon(['#ff8fc7', '#ffe066', '#7ad0ff'][i + 1]));
+    star.position.set(i * 0.2, Math.abs(i) ? 0 : 0.12, 0.02);
+    crown.add(star);
+  }
+  group.add(crown);
+  wiggler(anim, crown, { amp: 0.12, speed: 3.5 });
 }
 
 function addDragonParts(group, face, bodyMat, color, anim) {
@@ -395,6 +478,8 @@ const SPECIES_PARTS = {
   foxy: addFoxyParts,
   ducky: addDuckyParts,
   blob: addBlobParts,
+  squid: addSquidParts,
+  fairy: addFairyParts,
   dragon: addDragonParts,
   unicorn: addUnicornParts,
   phoenix: addPhoenixParts,
@@ -464,20 +549,22 @@ export function buildMimimo({ species = 'bunny', color = '#ff9ed2', shape = 'cla
   group.add(face);
   addFace(face, { smile: species !== 'ducky' });
 
-  // arms
-  for (const side of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.26, 6, 10), bodyMat);
-    arm.position.set(side * armX, armY, 0.1);
-    arm.rotation.z = side * 0.65;
-    group.add(arm);
-  }
+  if (species !== 'squid') {
+    // arms
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.26, 6, 10), bodyMat);
+      arm.position.set(side * armX, armY, 0.1);
+      arm.rotation.z = side * 0.65;
+      group.add(arm);
+    }
 
-  // feet
-  for (const side of [-1, 1]) {
-    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), bodyMat);
-    foot.position.set(side * footX, 0.11, 0.08);
-    foot.scale.set(1, 0.55, 1.35);
-    group.add(foot);
+    // feet
+    for (const side of [-1, 1]) {
+      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), bodyMat);
+      foot.position.set(side * footX, 0.11, 0.08);
+      foot.scale.set(1, 0.55, 1.35);
+      group.add(foot);
+    }
   }
 
   (SPECIES_PARTS[species] || SPECIES_PARTS.bunny)(group, face, bodyMat, color, anim);
@@ -491,10 +578,13 @@ export function animateMimimo(group, t, dt, moving) {
   const anim = group.userData.anim;
   if (!anim) return;
 
-  const bob = moving
-    ? Math.abs(Math.sin(t * 9)) * 0.22
-    : Math.sin(t * 2.2) * 0.03 + 0.03;
-  group.position.y = anim.baseY + bob;
+  const flies = Boolean(SPECIES[group.userData.config?.species]?.flies);
+  const bob = flies
+    ? Math.sin(t * (moving ? 5 : 2.8)) * (moving ? 0.18 : 0.11)
+    : moving
+      ? Math.abs(Math.sin(t * 9)) * 0.22
+      : Math.sin(t * 2.2) * 0.03 + 0.03;
+  group.position.y = anim.baseY + (flies ? 0.85 : 0) + bob;
 
   const squash = moving ? 1 : 1 + Math.sin(t * 2.2) * 0.02;
   group.scale.y = squash;

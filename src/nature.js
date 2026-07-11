@@ -342,11 +342,21 @@ function makePool(scene) {
   colliders.push({ x: center.x, z: center.z + poolD / 2 + 0.3, r: 1.2 });
 
   scene.add(makeSignpost('🏊 Pool', center.x - 9, center.z - 7));
+
+  return {
+    center,
+    halfX: poolW / 2 - 0.35,
+    halfZ: poolD / 2 - 0.35,
+    contains(position) {
+      return Math.abs(position.x - center.x) <= this.halfX
+        && Math.abs(position.z - center.z) <= this.halfZ;
+    },
+  };
 }
 
 /** Build every nature district. Call before makeTrees so trees stay clear. */
 export function makeNature(scene) {
   makePark(scene);
   makeBeach(scene);
-  makePool(scene);
+  return { pool: makePool(scene) };
 }
