@@ -56,7 +56,7 @@ function wiggler(anim, obj, { axis = 'z', amp = 0.08, speed = 3 } = {}) {
  * a group that gets pushed forward for the rounder body so the features
  * still sit on the surface instead of sinking in.
  */
-function addFace(face, { smile = true } = {}) {
+function addFace(face, { smile = true, mouthDepth = 0.61 } = {}) {
   // eyes
   for (const side of [-1, 1]) {
     const white = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), toon('#ffffff'));
@@ -91,7 +91,7 @@ function addFace(face, { smile = true } = {}) {
       new THREE.Vector3(0.16, 0.04, 0),
     ]);
     const mouth = new THREE.Mesh(new THREE.TubeGeometry(mouthCurve, 24, 0.018, 7, false), toon(INK));
-    mouth.position.set(0, 1.13, 0.61);
+    mouth.position.set(0, 1.13, mouthDepth);
     face.add(mouth);
   }
 }
@@ -547,7 +547,13 @@ export function buildMimimo({ species = 'bunny', color = '#ff9ed2', shape = 'cla
   const face = new THREE.Group();
   face.position.set(0, faceDy, facePush);
   group.add(face);
-  addFace(face, { smile: species !== 'ducky' });
+  addFace(face, {
+    // Beaked species provide their own mouth shape in their species parts.
+    smile: species !== 'ducky' && species !== 'phoenix',
+    // The round body curves farther forward than the classic head. Keep the
+    // tube fully above that surface so the middle of the "w" cannot clip out.
+    mouthDepth: shape === 'circle' ? 0.69 : 0.61,
+  });
 
   if (species !== 'squid') {
     // arms
