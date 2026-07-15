@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, darken, lighten, emojiSprite, textSprite, shadowify } from './utils.js';
+import { toon, darken, lighten, emojiSprite, textSprite, shadowify, pick } from './utils.js';
 import { buildMimimo, animateMimimo, disposeMimimo } from './mimimo.js';
 
 const ROOM = { halfX: 7, backZ: -7, frontZ: 6 };
@@ -7,36 +7,53 @@ const INVENTORY_KEY = 'mimimo.inventory.v1';
 
 export const SHOP_PRODUCTS = {
   toys: [
-    { key: 'teddy', emoji: '🧸', name: 'Teddy' },
-    { key: 'ball', emoji: '⚽', name: 'Bouncy ball' },
-    { key: 'blocks', emoji: '🧱', name: 'Building blocks' },
-    { key: 'kite', emoji: '🪁', name: 'Rainbow kite' },
+    { key: 'teddy', emoji: '🧸', name: 'Teddy', action: 'play', useMessage: 'Teddy hug! I love you! 💖' },
+    { key: 'ball', emoji: '⚽', name: 'Bouncy ball', action: 'play', useMessage: "Let's bounce the ball!" },
+    { key: 'blocks', emoji: '🧱', name: 'Building blocks', action: 'play', useMessage: "Let's build something!" },
+    { key: 'kite', emoji: '🪁', name: 'Rainbow kite', action: 'play', useMessage: 'My kite can touch the clouds!' },
   ],
   bakery: [
-    { key: 'croissant', emoji: '🥐', name: 'Croissant' },
-    { key: 'cupcake', emoji: '🧁', name: 'Cupcake' },
-    { key: 'cookie', emoji: '🍪', name: 'Cookie' },
-    { key: 'cake', emoji: '🍰', name: 'Cake slice' },
+    { key: 'croissant', emoji: '🥐', name: 'Croissant', action: 'eat', useMessage: 'Crunchy and yummy!' },
+    { key: 'cupcake', emoji: '🧁', name: 'Cupcake', action: 'eat', useMessage: 'Yum, sprinkles!' },
+    { key: 'cookie', emoji: '🍪', name: 'Cookie', action: 'eat', useMessage: 'Mmm, cookie!' },
+    { key: 'cake', emoji: '🍰', name: 'Cake slice', action: 'eat', useMessage: 'This cake is delicious!' },
   ],
   market: [
-    { key: 'apple', emoji: '🍎', name: 'Apple' },
-    { key: 'milk', emoji: '🥛', name: 'Milk' },
-    { key: 'carrot', emoji: '🥕', name: 'Carrot' },
-    { key: 'watermelon', emoji: '🍉', name: 'Watermelon' },
+    { key: 'apple', emoji: '🍎', name: 'Apple', action: 'eat', useMessage: 'Crunch! I love apples!' },
+    { key: 'milk', emoji: '🥛', name: 'Milk', action: 'drink', useMessage: 'Slurp! So refreshing!' },
+    { key: 'carrot', emoji: '🥕', name: 'Carrot', action: 'eat', useMessage: 'Crunchy carrot power!' },
+    { key: 'watermelon', emoji: '🍉', name: 'Watermelon', action: 'eat', useMessage: 'Juicy watermelon!' },
   ],
   icecream: [
-    { key: 'cone', emoji: '🍦', name: 'Swirl cone' },
-    { key: 'sundae', emoji: '🍨', name: 'Sundae' },
-    { key: 'shaved_ice', emoji: '🍧', name: 'Shaved ice' },
-    { key: 'pop', emoji: '🍡', name: 'Sweet pop' },
+    { key: 'cone', emoji: '🍦', name: 'Swirl cone', action: 'eat', useMessage: 'Cold and creamy!' },
+    { key: 'sundae', emoji: '🍨', name: 'Sundae', action: 'eat', useMessage: 'Best sundae ever!' },
+    { key: 'shaved_ice', emoji: '🍧', name: 'Shaved ice', action: 'eat', useMessage: 'Brrr! Sweet snow!' },
+    { key: 'pop', emoji: '🍡', name: 'Sweet pop', action: 'eat', useMessage: 'Yummy rainbow pop!' },
   ],
   candy: [
-    { key: 'lollipop', emoji: '🍭', name: 'Lollipop' },
-    { key: 'candy', emoji: '🍬', name: 'Candy' },
-    { key: 'chocolate', emoji: '🍫', name: 'Chocolate' },
-    { key: 'donut', emoji: '🍩', name: 'Donut' },
+    { key: 'lollipop', emoji: '🍭', name: 'Lollipop', action: 'eat', useMessage: 'Sweet lollipop!' },
+    { key: 'candy', emoji: '🍬', name: 'Candy', action: 'eat', useMessage: 'Candy sparkle power!' },
+    { key: 'chocolate', emoji: '🍫', name: 'Chocolate', action: 'eat', useMessage: 'Mmm, chocolate!' },
+    { key: 'donut', emoji: '🍩', name: 'Donut', action: 'eat', useMessage: 'A perfect donut!' },
   ],
 };
+
+const ALL_PRODUCTS = Object.values(SHOP_PRODUCTS).flat();
+const CASHIER_CHATS = [
+  { player: 'Hi! How are you?', cashier: "I'm happy to see you! 🌸" },
+  { player: 'I love your shop! 💖', cashier: 'Thank you! I love it too!' },
+  { player: 'What do you like?', cashier: 'I like helping mimimos!' },
+  { player: 'You are a great cashier!', cashier: 'You are very kind! ✨' },
+  { player: 'Have a lovely day!', cashier: 'You too, my friend! 👋' },
+];
+
+function readInventory() {
+  try { return JSON.parse(localStorage.getItem(INVENTORY_KEY)) || {}; } catch { return {}; }
+}
+
+function writeInventory(inventory) {
+  try { localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory)); } catch { /* ignore */ }
+}
 
 const box = (w, h, d, color) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color));
 
@@ -141,6 +158,7 @@ export function makeShopInterior() {
   let cashier = null;
   let cashierTag = null;
   let cashierBubble = null;
+  let playerBubble = null;
   let activeShop = null;
   let products = [];
   let cart = [];
@@ -152,6 +170,14 @@ export function makeShopInterior() {
     cashierBubble = textSprite(message, { fontSize: 36 });
     cashierBubble.position.y = 3.6;
     cashier.add(cashierBubble);
+  }
+
+  function setPlayerMessage(message) {
+    if (!player) return;
+    if (playerBubble) disposeSprite(playerBubble);
+    playerBubble = textSprite(message, { fontSize: 36 });
+    playerBubble.position.y = 2.9;
+    player.add(playerBubble);
   }
 
   function clearProducts() {
@@ -189,6 +215,7 @@ export function makeShopInterior() {
     cart = [];
     if (player) disposeMimimo(player);
     player = buildMimimo(config);
+    playerBubble = null;
     player.position.set(0, 0, 4.5);
     player.rotation.y = Math.PI;
     scene.add(player);
@@ -221,13 +248,41 @@ export function makeShopInterior() {
       return { count: 0, items: [] };
     }
     const bought = [...cart];
-    let inventory = {};
-    try { inventory = JSON.parse(localStorage.getItem(INVENTORY_KEY)) || {}; } catch { inventory = {}; }
+    const inventory = readInventory();
     for (const item of bought) inventory[item.key] = (inventory[item.key] || 0) + 1;
-    try { localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory)); } catch { /* ignore */ }
+    writeInventory(inventory);
     cart = [];
     setCashierMessage('Thank you! Come again! 💖');
     return { count: bought.length, items: bought };
+  }
+
+  function talkToCashier() {
+    const chat = pick(CASHIER_CHATS);
+    setPlayerMessage(chat.player);
+    setCashierMessage(chat.cashier);
+    return chat;
+  }
+
+  function getInventoryItems() {
+    const inventory = readInventory();
+    return ALL_PRODUCTS
+      .filter((item) => inventory[item.key] > 0)
+      .map((item) => ({ ...item, count: inventory[item.key] }));
+  }
+
+  function useInventoryItem(productKey) {
+    const inventory = readInventory();
+    const item = ALL_PRODUCTS.find((product) => product.key === productKey);
+    if (!item || !inventory[productKey]) return null;
+
+    // Food and drinks are used up. Toys stay in the bag so they can be
+    // played with again and again.
+    if (item.action !== 'play') {
+      inventory[productKey] -= 1;
+      if (inventory[productKey] <= 0) delete inventory[productKey];
+      writeInventory(inventory);
+    }
+    return { item, remaining: inventory[productKey] || 0 };
   }
 
   function update(dt, t, move) {
@@ -263,6 +318,9 @@ export function makeShopInterior() {
     update,
     addToCart,
     checkout,
+    talkToCashier,
+    getInventoryItems,
+    useInventoryItem,
     getProducts: () => products,
     getCartCount: () => cart.length,
     getPlayerPos: () => (player ? player.position : new THREE.Vector3()),

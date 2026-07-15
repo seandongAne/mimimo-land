@@ -19,15 +19,19 @@ Then open the printed URL (defaults to http://localhost:5173).
 | Action        | Desktop            | Touch                |
 | ------------- | ------------------ | -------------------- |
 | Explore       | WASD / arrow keys  | Drag the wheel       |
-| Choose power  | 1–4                 | Tap a power bubble   |
+| Choose power  | Number keys 1–0     | Tap a power bubble   |
 | Use power ✨   | SPACE or M          | Tap the big power button |
-| Say hi 👋      | H                  | Tap the 👋 button     |
+| Talk 👋        | H                   | Tap the 👋 button     |
+| Fly / land 🪽  | F (flying species)  | Tap Fly / Land        |
+| Use purchases | Open the 🎒 bag      | Open the 🎒 bag       |
 | Interact 🚪   | E (by a door/pool) | Tap the prompt       |
 | Rotate item   | R (inside a house) | Tap the ↻ button     |
 
-Choose several powers at once, then switch between flower, rainbow, bubble and
-heart magic while you explore. Say hi to other mimimos and they'll wave and
-chat back. Walk up to a house, shop or the pool and use its interaction prompt.
+Choose several powers at once, including levitation, teleportation, water,
+fire, cloud and leaf magic. Say loving and friendly things to other mimimos and
+they'll wave and chat back. Walk up to a house, shop or the pool and use its
+interaction prompt. Purchases go into your bag: food can be eaten, drinks can
+be sipped and toys can be played with again and again.
 
 ## What's here
 
@@ -39,7 +43,8 @@ chat back. Walk up to a house, shop or the pool and use its interaction prompt.
   - **Village** of eight animal-shaped houses (bunny, kitty, froggy, puppy,
     bear, ducky, foxy, piggy) that you can walk into.
   - **Town square** with an enterable supermarket, bakery, ice-cream parlor,
-    candy shop and toy shop. Each has a cashier, carts and items to buy.
+    candy shop and toy shop. Each has a cashier to talk to, carts and usable
+    items to buy.
   - **Park** with a pond, swings, a slide, benches, lamps and flowers.
   - **Beach** with striped umbrellas, towels, beach balls and a sandcastle.
   - **Swimming pool** with a diving board, ring floats and a tiled deck. Dive
@@ -53,8 +58,9 @@ chat back. Walk up to a house, shop or the pool and use its interaction prompt.
   button jumps ahead when you want to see the next phase.
 - **Life & chatter** — friendly mimimos wander every district, wave, blow
   hearts and pop up speech bubbles; a little pet tags along behind you.
-- **Magic** — select any combination of flower, rainbow, bubble and heart
-  powers, then switch between them from the HUD or number keys.
+- **Magic** — select any combination of flower, rainbow, bubble, heart,
+  levitation, teleportation, water, fire, cloud and leaf powers, then switch
+  between them from the HUD or number keys.
 
 ## Project layout
 

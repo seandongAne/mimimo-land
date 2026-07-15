@@ -267,6 +267,51 @@ html, body {
   box-shadow: 3px 4px 0 rgba(74, 59, 92, 0.25);
 }
 
+#bagBtn, #flyBtn {
+  top: 70px;
+  padding: 7px 13px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--cream);
+  font-size: 0.92rem;
+  font-weight: 700;
+  box-shadow: 3px 4px 0 rgba(74, 59, 92, 0.25);
+}
+#bagBtn { right: 18px; }
+#flyBtn { right: 92px; background: linear-gradient(180deg, #e8f8ff, #cdbdff); }
+
+#bagTray {
+  top: 118px;
+  right: 18px;
+  width: min(330px, calc(100vw - 36px));
+  max-height: min(58vh, 430px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px;
+  border: 3.5px solid var(--ink);
+  border-radius: 20px;
+  background: rgba(255, 253, 248, 0.97);
+  box-shadow: 6px 7px 0 rgba(74, 59, 92, 0.25);
+}
+.bag-title { padding: 2px 4px 5px; font-size: 0.92rem; font-weight: 700; text-align: center; }
+.bag-item {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 2.5px solid var(--ink);
+  border-radius: 13px;
+  background: #fff4d8;
+  font: 600 0.86rem "Fredoka", sans-serif;
+  text-align: left;
+}
+.bag-item span { font-size: 1.45rem; text-align: center; }
+.bag-item small { padding: 2px 6px; border-radius: 999px; background: #fff; font-size: 0.75rem; }
+
 #hint {
   bottom: 16px;
   left: 50%;
@@ -295,9 +340,12 @@ html, body {
 
 #powerTray {
   right: 108px;
-  bottom: 34px;
+  bottom: 104px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 7px;
+  max-width: min(560px, calc(100vw - 230px));
   padding: 6px;
   border-radius: 999px;
   background: rgba(255, 253, 248, 0.78);
@@ -435,6 +483,9 @@ body.building #greetBtn,
 body.building #hint,
 body.building #newBtn,
 body.building #timeBtn,
+body.building #bagBtn,
+body.building #bagTray,
+body.building #flyBtn,
 body.building #powerTray,
 body.building #enterPrompt { display: none !important; }
 
@@ -472,12 +523,13 @@ body.building #enterPrompt { display: none !important; }
 .product-button .product-emoji { font-size: 1.35rem; display: block; }
 .shop-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
 #cartCount { font-weight: 700; padding: 7px 12px; border-radius: 999px; background: #e5f7ff; }
-#checkoutBtn, #shopExitBtn, #diveExitBtn {
+#cashierTalkBtn, #checkoutBtn, #shopExitBtn, #diveExitBtn {
   padding: 8px 15px;
   border: 3px solid var(--ink);
   border-radius: 999px;
   font: 700 0.92rem "Fredoka", sans-serif;
 }
+#cashierTalkBtn { background: var(--sky); }
 #checkoutBtn { background: var(--pink); color: #fff; }
 #shopExitBtn, #diveExitBtn { background: var(--coral); color: #fff; }
 #shopFeedback { min-height: 1.1em; font-size: 0.88rem; font-weight: 600; }
@@ -487,6 +539,9 @@ body.shopping #greetBtn,
 body.shopping #hint,
 body.shopping #newBtn,
 body.shopping #timeBtn,
+body.shopping #bagBtn,
+body.shopping #bagTray,
+body.shopping #flyBtn,
 body.shopping #powerTray,
 body.shopping #enterPrompt { display: none !important; }
 
@@ -511,6 +566,9 @@ body.underwater #greetBtn,
 body.underwater #hint,
 body.underwater #newBtn,
 body.underwater #timeBtn,
+body.underwater #bagBtn,
+body.underwater #bagTray,
+body.underwater #flyBtn,
 body.underwater #powerTray,
 body.underwater #enterPrompt { display: none !important; }
 
@@ -582,8 +640,10 @@ body.underwater #enterPrompt { display: none !important; }
   #creator { padding: 2vh 3vw; }
   .panel { padding: 16px 18px; max-height: 62vh; }
   #hint { display: none; }
-  #powerTray { left: 50%; right: auto; bottom: 150px; translate: -50% 0; gap: 4px; }
+  #powerTray { left: 50%; right: auto; bottom: 195px; translate: -50% 0; gap: 4px; }
+  #powerTray { width: min(92vw, 430px); max-width: 92vw; justify-content: center; }
   .power-slot { width: 40px; height: 40px; font-size: 1.15rem; }
+  #bagTray { top: 114px; max-height: 46vh; }
   .build-actions { flex-wrap: wrap; justify-content: center; }
   .product-button { min-width: 92px; padding: 6px 8px; font-size: 0.78rem; }
   #underwaterBar { width: min(420px, 92vw); justify-content: space-between; font-size: 0.84rem; }

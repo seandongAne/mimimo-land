@@ -8,8 +8,15 @@ const _dir = new THREE.Vector3();
 const GREETINGS = [
   'Hi! 👋', 'Hello!', "Let's play!", 'Wanna be friends?',
   'Yay! ✨', 'So happy!', 'Nice day! 🌸', 'Hehe!', 'Ooh, hi!',
+  'I love you! 💖', 'You are amazing!', 'Best friends forever!',
+  'Thank you!', 'I missed you!', "Let's have fun together!",
 ];
-const AMBIENT = ['✨', '🎵', '💭', '🌸', '☁️'];
+const PLAYER_WORDS = [
+  'Hi! 👋', 'Hello!', 'Hiii ✨', 'I love you! 💖',
+  'You are my friend!', "Let's play together!", 'You are amazing!',
+  'Have a lovely day! 🌸', 'Thank you!',
+];
+const AMBIENT = ['✨', '🎵', 'I feel happy!', 'What a lovely day!', '🌸', '☁️'];
 
 // where the wandering mimimos hang out — one near each district
 const HOMES = [
@@ -113,7 +120,7 @@ export function makeFriends(scene, player) {
 
   /** Player says hi — pops a bubble and makes nearby mimimos wave back. */
   function greet() {
-    setBubble(player, pick(['Hi! 👋', 'Hello!', 'Hiii ✨']), 2.7);
+    setBubble(player, pick(PLAYER_WORDS), 2.7);
     for (const friend of friends) {
       if (friend.position.distanceTo(player.position) < 8) {
         const ai = friend.userData.ai;
@@ -124,6 +131,10 @@ export function makeFriends(scene, player) {
         turnToward(friend, _dir.x, _dir.z, 1, 20);
       }
     }
+  }
+
+  function say(message) {
+    setBubble(player, message, 2.7);
   }
 
   function update(dt, t) {
@@ -206,5 +217,5 @@ export function makeFriends(scene, player) {
     }
   }
 
-  return { update, showPet, hidePet, greet };
+  return { update, showPet, hidePet, greet, say };
 }

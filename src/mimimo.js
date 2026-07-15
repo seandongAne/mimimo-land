@@ -4,7 +4,7 @@ import { toon, lighten, darken, shadowify, pick } from './utils.js';
 const INK = '#3a2b4a';
 
 /**
- * Ten species. `mythical: true` marks the sparkly make-believe ones.
+ * Twelve species. `mythical: true` marks the sparkly make-believe ones.
  * Front of every mimimo faces +z.
  */
 export const SPECIES = {
@@ -548,8 +548,9 @@ export function buildMimimo({ species = 'bunny', color = '#ff9ed2', shape = 'cla
   face.position.set(0, faceDy, facePush);
   group.add(face);
   addFace(face, {
-    // Beaked species provide their own mouth shape in their species parts.
-    smile: species !== 'ducky' && species !== 'phoenix',
+    // Beaked species provide their own mouth shape. Foxy keeps the long
+    // pointy nose without the separate smile underneath it.
+    smile: species !== 'ducky' && species !== 'phoenix' && species !== 'foxy',
     // The round body curves farther forward than the classic head. Keep the
     // tube fully above that surface so the middle of the "w" cannot clip out.
     mouthDepth: shape === 'circle' ? 0.69 : 0.61,
@@ -585,12 +586,15 @@ export function animateMimimo(group, t, dt, moving) {
   if (!anim) return;
 
   const flies = Boolean(SPECIES[group.userData.config?.species]?.flies);
-  const bob = flies
+  const controlledFlight = Boolean(anim.playerControlledFlight);
+  const flightHeight = controlledFlight ? (anim.flightHeight || 0) : (flies ? 0.85 : 0);
+  const isFlying = flies && (!controlledFlight || flightHeight > 0.08);
+  const bob = isFlying
     ? Math.sin(t * (moving ? 5 : 2.8)) * (moving ? 0.18 : 0.11)
     : moving
       ? Math.abs(Math.sin(t * 9)) * 0.22
       : Math.sin(t * 2.2) * 0.03 + 0.03;
-  group.position.y = anim.baseY + (flies ? 0.85 : 0) + bob;
+  group.position.y = anim.baseY + flightHeight + (anim.magicLift || 0) + bob;
 
   const squash = moving ? 1 : 1 + Math.sin(t * 2.2) * 0.02;
   group.scale.y = squash;

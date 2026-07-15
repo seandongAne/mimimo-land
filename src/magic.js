@@ -10,6 +10,12 @@ export const POWERS = {
   rainbow: { label: 'Rainbow rings', shortLabel: 'Rainbow', emoji: '🌈' },
   bubbles: { label: 'Bubble float', shortLabel: 'Bubbles', emoji: '🫧' },
   hearts: { label: 'Heart shower', shortLabel: 'Hearts', emoji: '💖' },
+  levitation: { label: 'Levitation', shortLabel: 'Levitate', emoji: '🪄' },
+  teleport: { label: 'Teleportation', shortLabel: 'Teleport', emoji: '💫' },
+  water: { label: 'Water magic', shortLabel: 'Water', emoji: '💧' },
+  fire: { label: 'Fire magic', shortLabel: 'Fire', emoji: '🔥' },
+  cloud: { label: 'Cloud magic', shortLabel: 'Cloud', emoji: '☁️' },
+  leaves: { label: 'Leaf magic', shortLabel: 'Leaves', emoji: '🍃' },
 };
 
 let sparkleTexture = null;
@@ -54,6 +60,27 @@ export class Magic {
     } else if (power === 'hearts') {
       this.spawnRing(position, '#ff8fc7');
       for (let i = 0; i < 14; i++) this.spawnHeart(position);
+    } else if (power === 'levitation') {
+      this.spawnRing(position, '#b79cff', 0.55);
+      this.spawnRing(position, '#e5d7ff', 0.85);
+      this.spawnEmojis(position, ['✨', '🪽'], { count: 12, upMin: 1.8, upMax: 3.5 });
+    } else if (power === 'teleport') {
+      this.spawnRing(position, '#8a6cff', 0.45);
+      this.spawnRing(position, '#ff8fc7', 0.75);
+      this.spawnEmojis(position, ['💫', '✨'], { count: 14, outMax: 3.8, upMin: 0.8, upMax: 3.2 });
+    } else if (power === 'water') {
+      this.spawnRing(position, '#4fc3f7', 0.5);
+      this.spawnRing(position, '#bfeaff', 0.8);
+      this.spawnEmojis(position, ['💧', '🫧'], { count: 20, outMax: 3.4, upMin: 1.4, upMax: 4.2 });
+    } else if (power === 'fire') {
+      this.spawnRing(position, '#ff7043', 0.55);
+      this.spawnEmojis(position, ['🔥', '✨'], { count: 18, outMax: 2.7, upMin: 2.1, upMax: 4.8 });
+    } else if (power === 'cloud') {
+      this.spawnRing(position, '#d9f3ff', 0.65);
+      this.spawnEmojis(position, ['☁️', '☁️', '✨'], { count: 13, outMax: 2.3, upMin: 1.1, upMax: 2.4, sizeMin: 0.55, sizeMax: 1.05 });
+    } else if (power === 'leaves') {
+      this.spawnRing(position, '#72c96b', 0.6);
+      this.spawnEmojis(position, ['🍃', '🍂', '🌿'], { count: 22, outMax: 4.1, upMin: 1.5, upMax: 4.4 });
     } else {
       this.spawnRing(position, '#ff9fce');
       const count = 1 + Math.floor(Math.random() * 3);
@@ -147,6 +174,50 @@ export class Magic {
       maxLife: rand(1.1, 1.8),
       spin: rand(-2, 2),
       opacity: 1,
+    });
+  }
+
+  spawnEmojis(position, emojis, {
+    count = 10,
+    outMax = 2.5,
+    upMin = 1.2,
+    upMax = 3,
+    sizeMin = 0.4,
+    sizeMax = 0.75,
+  } = {}) {
+    for (let i = 0; i < count; i++) {
+      const angle = rand(0, Math.PI * 2);
+      const outward = rand(0.25, outMax);
+      const sprite = emojiSprite(pick(emojis), rand(sizeMin, sizeMax));
+      sprite.position.set(
+        position.x + rand(-0.45, 0.45),
+        position.y + rand(0.35, 1.4),
+        position.z + rand(-0.45, 0.45)
+      );
+      this.scene.add(sprite);
+      this.floaters.push({
+        object: sprite,
+        velocity: new THREE.Vector3(Math.cos(angle) * outward, rand(upMin, upMax), Math.sin(angle) * outward),
+        life: 0,
+        maxLife: rand(1.2, 2.1),
+        spin: rand(-3.5, 3.5),
+        opacity: 1,
+      });
+    }
+  }
+
+  /** A visible little celebration when food is eaten or a toy is played with. */
+  useItem(position, item) {
+    this.spawnBurst(position);
+    const count = item.action === 'play' ? 8 : 5;
+    const emojis = item.key === 'teddy' ? [item.emoji, '💖'] : [item.emoji, '✨'];
+    this.spawnEmojis(position, emojis, {
+      count,
+      outMax: item.key === 'kite' ? 1.5 : 2.8,
+      upMin: item.key === 'kite' ? 3.2 : 1.7,
+      upMax: item.key === 'kite' ? 5.4 : 4,
+      sizeMin: 0.5,
+      sizeMax: 0.9,
     });
   }
 

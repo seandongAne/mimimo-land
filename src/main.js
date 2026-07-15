@@ -75,12 +75,16 @@ function loadConfig() {
 }
 
 const config = loadConfig();
+let flightEnabled = false;
+let flightAmount = 0;
 
 // Stable root that moves/turns; the body inside is swapped by the creator.
 const playerRoot = new THREE.Group();
 playerRoot.position.copy(SPAWN);
 scene.add(playerRoot);
 let playerBody = buildMimimo(config);
+playerBody.userData.anim.playerControlledFlight = true;
+playerBody.userData.anim.flightHeight = 0;
 playerRoot.add(playerBody);
 
 const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, 0.28, 24), toon('#fff3e0'));
@@ -90,9 +94,16 @@ scene.add(pedestal);
 
 function rebuildPlayer() {
   disposeMimimo(playerBody);
+  if (!SPECIES[config.species].flies) {
+    flightEnabled = false;
+    flightAmount = 0;
+  }
   playerBody = buildMimimo(config);
+  playerBody.userData.anim.playerControlledFlight = true;
+  playerBody.userData.anim.flightHeight = flightAmount;
   playerRoot.add(playerBody);
   syncPedestal();
+  syncFlightButton();
 }
 
 // ---------------------------------------------------------------- UI + creator
@@ -104,10 +115,14 @@ const hintEl = document.getElementById('hint');
 const magicBtn = document.getElementById('magicBtn');
 const powerTrayEl = document.getElementById('powerTray');
 const timeBtn = document.getElementById('timeBtn');
+const bagBtn = document.getElementById('bagBtn');
+const bagTrayEl = document.getElementById('bagTray');
+const flyBtn = document.getElementById('flyBtn');
 
 let mode = 'creator';
 let spinTime = SPIN_DURATION;
 let magicCooldown = 0;
+let levitationTime = 0;
 let desiredRotation = 0;
 let currentRotation = 0;
 let activePower = config.powers[0];
@@ -213,7 +228,7 @@ function refreshPowerTray() {
     button.className = 'power-slot squishy';
     button.dataset.power = key;
     button.textContent = power.emoji;
-    button.title = `${index + 1}: select ${power.label}`;
+    button.title = `${index === 9 ? 0 : index + 1}: select ${power.label}`;
     button.addEventListener('click', () => selectPower(key));
     powerTrayEl.appendChild(button);
   });
@@ -236,6 +251,8 @@ document.getElementById('startBtn').addEventListener('click', () => {
   hudEl.classList.remove('hidden');
   badgeEl.textContent = `${SPECIES[config.species].emoji} ${config.name}`;
   refreshPowerTray();
+  renderInventory();
+  syncFlightButton();
   castMagic();
 });
 
@@ -245,6 +262,11 @@ document.getElementById('newBtn').addEventListener('click', () => {
   playerRoot.rotation.y = 0;
   desiredRotation = 0;
   currentRotation = 0;
+  flightEnabled = false;
+  flightAmount = 0;
+  levitationTime = 0;
+  bagTrayEl.classList.add('hidden');
+  syncFlightButton();
   syncPedestal();
   friends.hidePet();
   hudEl.classList.add('hidden');
@@ -254,7 +276,7 @@ document.getElementById('newBtn').addEventListener('click', () => {
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 hintEl.textContent = isTouch
   ? 'Drag the wheel · choose a power · tap it to cast'
-  : 'WASD / arrows · E interacts · 1–4 choose power · SPACE casts';
+  : 'WASD / arrows · E interacts · number keys choose powers · SPACE casts';
 
 function refreshTimeButton() {
   const phase = world.getPhase();
@@ -279,7 +301,17 @@ function castMagic() {
   if (mode !== 'play' || magicCooldown > 0) return;
   magicCooldown = 0.35;
   spinTime = 0;
-  magic.cast(playerRoot.position, activePower);
+  const castPosition = playerRoot.position.clone();
+  magic.cast(castPosition, activePower);
+
+  if (activePower === 'levitation') {
+    levitationTime = 4;
+  } else if (activePower === 'teleport') {
+    playerRoot.position.x += Math.sin(currentRotation) * 7;
+    playerRoot.position.z += Math.cos(currentRotation) * 7;
+    resolveCollisions();
+    magic.cast(playerRoot.position, 'teleport');
+  }
 }
 
 const friends = makeFriends(scene, playerRoot);
@@ -287,6 +319,61 @@ const friends = makeFriends(scene, playerRoot);
 function sayHi() {
   if (mode === 'play') friends.greet();
 }
+
+function syncFlightButton() {
+  const canFly = Boolean(SPECIES[config.species]?.flies);
+  flyBtn.classList.toggle('hidden', !canFly);
+  flyBtn.textContent = flightEnabled ? '⬇️ Land' : '🪽 Fly';
+  flyBtn.title = flightEnabled ? 'Land (F)' : 'Fly (F)';
+}
+
+function toggleFlight() {
+  if (mode !== 'play' || !SPECIES[config.species]?.flies) return;
+  flightEnabled = !flightEnabled;
+  if (flightEnabled) {
+    levitationTime = 0;
+    magic.cast(playerRoot.position, 'levitation');
+    friends.say('I can fly! 🪽');
+  } else {
+    friends.say('Coming in to land!');
+  }
+  syncFlightButton();
+}
+
+function renderInventory() {
+  const items = shopInterior.getInventoryItems();
+  const total = items.reduce((sum, item) => sum + item.count, 0);
+  bagBtn.textContent = `🎒 ${total}`;
+  bagTrayEl.replaceChildren();
+
+  const title = document.createElement('p');
+  title.className = 'bag-title';
+  title.textContent = items.length ? 'Tap something to use it!' : 'Your bag is empty — visit a shop!';
+  bagTrayEl.appendChild(title);
+
+  for (const item of items) {
+    const button = document.createElement('button');
+    button.className = 'bag-item squishy';
+    const verb = item.action === 'play' ? 'Play' : item.action === 'drink' ? 'Drink' : 'Eat';
+    button.innerHTML = `<span>${item.emoji}</span>${verb} ${item.name} <small>×${item.count}</small>`;
+    button.addEventListener('click', () => {
+      if (mode !== 'play') return;
+      const used = shopInterior.useInventoryItem(item.key);
+      if (!used) return;
+      friends.say(used.item.useMessage);
+      magic.useItem(playerRoot.position, used.item);
+      renderInventory();
+    });
+    bagTrayEl.appendChild(button);
+  }
+}
+
+bagBtn.addEventListener('click', () => {
+  if (mode !== 'play') return;
+  renderInventory();
+  bagTrayEl.classList.toggle('hidden');
+});
+flyBtn.addEventListener('click', toggleFlight);
 
 // ---------------------------------------------------------------- houses + decorating
 const enterPromptEl = document.getElementById('enterPrompt');
@@ -345,6 +432,7 @@ function enterHouse(door) {
   nearbyInteraction = null;
   enterPromptEl.classList.add('hidden');
   buildBarEl.classList.remove('hidden');
+  bagTrayEl.classList.add('hidden');
   document.body.classList.add('building');
   badgeEl.textContent = `🏠 ${config.name}'s ${door.key} house`;
   refreshTools();
@@ -428,6 +516,7 @@ function enterShop(shopDoor) {
   nearbyInteraction = null;
   enterPromptEl.classList.add('hidden');
   shopBarEl.classList.remove('hidden');
+  bagTrayEl.classList.add('hidden');
   document.body.classList.add('shopping');
   friends.hidePet();
   badgeEl.textContent = `${shopDoor.emoji} ${shopDoor.label}`;
@@ -451,9 +540,14 @@ function exitShop() {
 document.getElementById('checkoutBtn').addEventListener('click', () => {
   const bought = shopInterior.checkout();
   refreshCartCount();
+  renderInventory();
   shopFeedbackEl.textContent = bought.count
     ? `🎉 Bought ${bought.items.map((item) => item.emoji).join(' ')} — saved in your bag!`
     : 'Add something to your cart first.';
+});
+document.getElementById('cashierTalkBtn').addEventListener('click', () => {
+  const chat = shopInterior.talkToCashier();
+  shopFeedbackEl.textContent = `You: “${chat.player}”  Cashier: “${chat.cashier}”`;
 });
 document.getElementById('shopExitBtn').addEventListener('click', exitShop);
 
@@ -466,6 +560,7 @@ function enterUnderwater() {
   nearbyInteraction = null;
   enterPromptEl.classList.add('hidden');
   underwaterBarEl.classList.remove('hidden');
+  bagTrayEl.classList.add('hidden');
   document.body.classList.add('underwater');
   friends.hidePet();
   badgeEl.textContent = '🤿 Underwater pool reef';
@@ -532,6 +627,7 @@ initInput({
   onEnter: activateInteraction,
   onPower: selectPower,
   onRotate: rotateFurniture,
+  onFly: toggleFlight,
 });
 magicBtn.addEventListener('click', castMagic);
 document.getElementById('greetBtn').addEventListener('click', sayHi);
@@ -567,7 +663,19 @@ function tick() {
   world.update(dt);
   refreshTimeButton();
   magicCooldown = Math.max(0, magicCooldown - dt);
+  levitationTime = Math.max(0, levitationTime - dt);
   spinTime = Math.min(SPIN_DURATION, spinTime + dt);
+
+  const flightTarget = mode === 'play' && flightEnabled ? 2.5 : 0;
+  flightAmount += (flightTarget - flightAmount) * (1 - Math.exp(-dt * 3.6));
+  playerBody.userData.anim.flightHeight = flightAmount;
+  if (mode === 'play' && levitationTime > 0) {
+    const rise = Math.min(1, (4 - levitationTime) * 4);
+    const fall = Math.min(1, levitationTime * 2);
+    playerBody.userData.anim.magicLift = 1.8 * rise * fall;
+  } else {
+    playerBody.userData.anim.magicLift = 0;
+  }
 
   let moving = false;
   if (mode === 'play') {
@@ -670,6 +778,9 @@ window.__debug = {
     if (door) enterShop(door);
   },
   enterUnderwater,
+  castMagic,
+  toggleFlight,
+  renderInventory,
   goToSleep,
   wakeUp,
 };
