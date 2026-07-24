@@ -450,7 +450,7 @@ html, body {
   transform: translateY(-2px);
 }
 .build-actions { display: flex; gap: 8px; align-items: center; }
-#undoBtn, #clearBtn, #rotateBtn, #sleepBtn {
+#undoBtn, #clearBtn, #rotateBtn, #sleepBtn, #inviteBtn {
   font-size: 1.3rem;
   height: 46px;
   background: var(--cream);
@@ -459,7 +459,8 @@ html, body {
   cursor: pointer;
 }
 #undoBtn, #clearBtn { width: 46px; }
-#rotateBtn, #sleepBtn { padding: 0 12px; font-size: 0.92rem; font-weight: 700; }
+#rotateBtn, #sleepBtn, #inviteBtn { padding: 0 12px; font-size: 0.92rem; font-weight: 700; }
+#inviteBtn { background: linear-gradient(180deg, #ffe3f2, #f7c8ff); }
 #sleepBtn:disabled {
   cursor: default;
   opacity: 0.52;
@@ -477,20 +478,21 @@ html, body {
 }
 #exitBtn:active { box-shadow: 0 1px 0 var(--ink); translate: 0 3px; }
 
-/* while decorating a house, hide the outdoor controls */
+/* while decorating a house, hide the outdoor controls
+   (the bag stays visible — snacks taste best at home with friends) */
 body.building #magicBtn,
 body.building #greetBtn,
 body.building #hint,
 body.building #newBtn,
 body.building #timeBtn,
-body.building #bagBtn,
-body.building #bagTray,
 body.building #flyBtn,
 body.building #powerTray,
 body.building #enterPrompt { display: none !important; }
+body.building #bagBtn, body.building #bagTray { z-index: 8; }
 
-/* ---------------- shops ---------------- */
-#shopBar {
+/* ---------------- shops + venues ---------------- */
+#shopBar,
+#venueBar {
   left: 50%;
   bottom: 18px;
   translate: -50% 0;
@@ -505,8 +507,9 @@ body.building #enterPrompt { display: none !important; }
   border-radius: 22px;
   box-shadow: 0 6px 0 rgba(74, 59, 92, 0.28);
 }
-#shopTitle { font-size: 1.15rem; font-weight: 700; }
-#productRow {
+#shopTitle, #venueTitle { font-size: 1.15rem; font-weight: 700; }
+#productRow,
+#venueActionRow {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -523,16 +526,16 @@ body.building #enterPrompt { display: none !important; }
 .product-button .product-emoji { font-size: 1.35rem; display: block; }
 .shop-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
 #cartCount { font-weight: 700; padding: 7px 12px; border-radius: 999px; background: #e5f7ff; }
-#cashierTalkBtn, #checkoutBtn, #shopExitBtn, #diveExitBtn {
+#cashierTalkBtn, #checkoutBtn, #shopExitBtn, #diveExitBtn, #venueTalkBtn, #venueExitBtn {
   padding: 8px 15px;
   border: 3px solid var(--ink);
   border-radius: 999px;
   font: 700 0.92rem "Fredoka", sans-serif;
 }
-#cashierTalkBtn { background: var(--sky); }
+#cashierTalkBtn, #venueTalkBtn { background: var(--sky); }
 #checkoutBtn { background: var(--pink); color: #fff; }
-#shopExitBtn, #diveExitBtn { background: var(--coral); color: #fff; }
-#shopFeedback { min-height: 1.1em; font-size: 0.88rem; font-weight: 600; }
+#shopExitBtn, #diveExitBtn, #venueExitBtn { background: var(--coral); color: #fff; }
+#shopFeedback, #venueFeedback { min-height: 1.1em; font-size: 0.88rem; font-weight: 600; }
 
 body.shopping #magicBtn,
 body.shopping #greetBtn,
@@ -544,6 +547,18 @@ body.shopping #bagTray,
 body.shopping #flyBtn,
 body.shopping #powerTray,
 body.shopping #enterPrompt { display: none !important; }
+
+/* while visiting the school, hospital or restaurant */
+body.visiting #magicBtn,
+body.visiting #greetBtn,
+body.visiting #hint,
+body.visiting #newBtn,
+body.visiting #timeBtn,
+body.visiting #bagBtn,
+body.visiting #bagTray,
+body.visiting #flyBtn,
+body.visiting #powerTray,
+body.visiting #enterPrompt { display: none !important; }
 
 /* ---------------- underwater ---------------- */
 #underwaterBar {
@@ -571,6 +586,40 @@ body.underwater #bagTray,
 body.underwater #flyBtn,
 body.underwater #powerTray,
 body.underwater #enterPrompt { display: none !important; }
+
+/* ---------------- cloudland ---------------- */
+#cloudBar {
+  left: 50%;
+  bottom: 22px;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  color: #35548e;
+  background: rgba(240, 250, 255, 0.94);
+  border: 3.5px solid #35548e;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 5px 0 rgba(53, 84, 142, 0.3);
+}
+#cloudExitBtn {
+  padding: 8px 15px;
+  border: 3px solid #35548e;
+  border-radius: 999px;
+  font: 700 0.92rem "Fredoka", sans-serif;
+  background: linear-gradient(180deg, #ffe066, #ff9ed2);
+}
+body.clouding #magicBtn,
+body.clouding #greetBtn,
+body.clouding #hint,
+body.clouding #newBtn,
+body.clouding #timeBtn,
+body.clouding #bagBtn,
+body.clouding #bagTray,
+body.clouding #flyBtn,
+body.clouding #powerTray,
+body.clouding #enterPrompt { display: none !important; }
 
 /* ---------------- sleep / wake ---------------- */
 #sleepOverlay {
@@ -632,7 +681,9 @@ body.underwater #enterPrompt { display: none !important; }
   #hint { bottom: 156px; }
   body.building #buildBar,
   body.shopping #shopBar,
-  body.underwater #underwaterBar { bottom: 156px; }
+  body.visiting #venueBar,
+  body.underwater #underwaterBar,
+  body.clouding #cloudBar { bottom: 156px; }
 }
 
 /* small screens: tuck the panel lower, shrink wordmark spacing */

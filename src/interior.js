@@ -1,9 +1,16 @@
 import * as THREE from 'three';
-import { toon, lighten, darken, pick, shadowify } from './utils.js';
-import { buildMimimo, animateMimimo, disposeMimimo } from './mimimo.js';
+import { toon, lighten, darken, pick, rand, shadowify, textSprite } from './utils.js';
+import { buildMimimo, animateMimimo, disposeMimimo, randomName, SPECIES, SHAPES, COLORS } from './mimimo.js';
 
 const ROOM = { halfX: 7, backZ: -6, frontZ: 6, wallH: 6 };
 const ITEM_COLORS = ['#ff9ed2', '#ffb46b', '#ffe066', '#8ee08e', '#7ad0ff', '#b79cff', '#ff8f8f', '#c8a2ff'];
+
+const GUEST_HELLOS = ['Knock knock! 🚪', 'Hello hello!', 'Thanks for inviting me! 💖'];
+const GUEST_CHATTER = [
+  'I love your house! 💖', 'So cozy in here!', 'Great decorating!',
+  'Can I visit again?', 'This is the best party! 🎉', '🎵 La la la~',
+];
+const GUEST_REACTIONS = ['Yummy! 😋', 'That looks fun!', 'Hooray! 🎉', 'Me too, me too!', 'So tasty!'];
 
 const box = (w, h, d, color) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color));
 const cyl = (rt, rb, h, color) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 12), toon(color));
@@ -221,7 +228,58 @@ export function makeInterior() {
   let placementRotation = 0;
   let sleeping = false;
   const items = []; // { group, kind, x, z, ry }
+  const guests = []; // invited mimimo friends wandering the room
   const raycaster = new THREE.Raycaster();
+  const _dir = new THREE.Vector3();
+
+  function setGuestBubble(guest, text) {
+    if (guest.userData.bubble) {
+      guest.remove(guest.userData.bubble);
+      guest.userData.bubble.material.map.dispose();
+      guest.userData.bubble.material.dispose();
+    }
+    const bubble = textSprite(text, { fontSize: 36 });
+    bubble.position.y = 2.6;
+    guest.add(bubble);
+    guest.userData.bubble = bubble;
+    guest.userData.bubbleTime = 2.6;
+  }
+
+  function clearGuests() {
+    for (const guest of guests) disposeMimimo(guest);
+    guests.length = 0;
+  }
+
+  /** A random friend knocks and comes in to hang out. Up to three at once. */
+  function inviteGuest() {
+    if (guests.length >= 3) return null;
+    const name = randomName();
+    const guest = buildMimimo({
+      species: pick(Object.keys(SPECIES)),
+      color: pick(COLORS),
+      shape: pick(Object.keys(SHAPES)),
+    });
+    guest.position.set(-4, 0, ROOM.backZ + 1.2); // appears by the door
+    scene.add(guest);
+    const tag = textSprite(name);
+    tag.position.y = 2.35;
+    guest.add(tag);
+    guest.userData.ai = { target: null, wait: 0.6, chat: rand(3, 7) };
+    guests.push(guest);
+    setGuestBubble(guest, pick(GUEST_HELLOS));
+    return name;
+  }
+
+  /** Guests cheer when the player eats or plays with something. */
+  function guestsReact() {
+    for (const guest of guests) {
+      setGuestBubble(guest, pick(GUEST_REACTIONS));
+      if (player) {
+        _dir.subVectors(player.position, guest.position);
+        guest.rotation.y = Math.atan2(_dir.x, _dir.z);
+      }
+    }
+  }
 
   function saveKeyFor(key) { return `mimimo.house.${key}`; }
 
@@ -263,6 +321,7 @@ export function makeInterior() {
     player.rotation.z = 0;
     sleeping = false;
     scene.add(player);
+    clearGuests();
     loadItems();
   }
 
@@ -344,6 +403,52 @@ export function makeInterior() {
     for (const it of items) {
       if (it.kind === 'balloon') it.group.position.y = Math.sin(t * 1.5 + it.x) * 0.15;
     }
+
+    // invited friends wander around and chat
+    for (const guest of guests) {
+      const ai = guest.userData.ai;
+      let guestMoving = false;
+      if (ai.wait > 0) {
+        ai.wait -= dt;
+      } else if (!ai.target) {
+        ai.target = new THREE.Vector3(
+          rand(-ROOM.halfX + 1, ROOM.halfX - 1),
+          0,
+          rand(ROOM.backZ + 1.4, ROOM.frontZ - 0.8)
+        );
+      } else {
+        _dir.subVectors(ai.target, guest.position);
+        _dir.y = 0;
+        if (_dir.length() < 0.3) {
+          ai.target = null;
+          ai.wait = rand(1.5, 4);
+        } else {
+          _dir.normalize();
+          guest.position.addScaledVector(_dir, dt * 1.6);
+          const target = Math.atan2(_dir.x, _dir.z);
+          let dr = target - guest.rotation.y;
+          while (dr > Math.PI) dr -= Math.PI * 2;
+          while (dr < -Math.PI) dr += Math.PI * 2;
+          guest.rotation.y += dr * Math.min(1, dt * 6);
+          guestMoving = true;
+        }
+      }
+      ai.chat -= dt;
+      if (ai.chat <= 0) {
+        ai.chat = rand(6, 12);
+        if (guest.userData.bubbleTime <= 0) setGuestBubble(guest, pick(GUEST_CHATTER));
+      }
+      if (guest.userData.bubbleTime > 0) {
+        guest.userData.bubbleTime -= dt;
+        if (guest.userData.bubbleTime <= 0 && guest.userData.bubble) {
+          guest.remove(guest.userData.bubble);
+          guest.userData.bubble.material.map.dispose();
+          guest.userData.bubble.material.dispose();
+          guest.userData.bubble = null;
+        }
+      }
+      animateMimimo(guest, t + guest.id, dt, guestMoving);
+    }
   }
 
   function getPlayerPos() { return player ? player.position : new THREE.Vector3(); }
@@ -363,5 +468,8 @@ export function makeInterior() {
     startSleep,
     wake,
     getPlayerPos,
+    inviteGuest,
+    guestsReact,
+    getGuestCount: () => guests.length,
   };
 }

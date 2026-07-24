@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { toon, rand, pick, shadowify, colliders, treeKeepOut } from './utils.js';
+import { makeSignpost } from './town.js';
 
 const CANOPY_PURPLES = ['#9b6ff0', '#8657e8', '#b48cff', '#a578f5'];
 
@@ -35,6 +36,25 @@ function lollipopTree() {
   tree.add(canopy);
   tree.userData.canopy = canopy;
   return tree;
+}
+
+/** A friendly toadstool for the forest floor. */
+function mushroom() {
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.7, 10), toon('#fff4e0'));
+  stem.position.y = 0.35;
+  g.add(stem);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), toon(pick(['#ff6f91', '#ff8f8f', '#ffb46b'])));
+  cap.position.y = 0.66;
+  cap.scale.set(1, 0.75, 1);
+  g.add(cap);
+  for (let i = 0; i < 3; i++) {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), toon('#fffdf8'));
+    const a = rand(0, Math.PI * 2);
+    dot.position.set(Math.cos(a) * 0.32, 0.85, Math.sin(a) * 0.32);
+    g.add(dot);
+  }
+  return g;
 }
 
 /** True if (x,z) sits inside a district we want to keep tree-free. */
@@ -75,17 +95,33 @@ export function makeTrees(scene, count = 30) {
     plantTree(scene, trees, x, z);
   }
 
-  // a cozy forest grove tucked to the south-west
-  const grove = { x: -30, z: 26 };
-  let planted = 0;
-  attempts = 0;
-  while (planted < 22 && attempts < 300) {
-    attempts++;
-    const gx = grove.x + rand(-11, 11);
-    const gz = grove.z + rand(-11, 11);
-    if (colliders.some((c) => (gx - c.x) ** 2 + (gz - c.z) ** 2 < (c.r + 1.6) ** 2)) continue;
-    plantTree(scene, trees, gx, gz, [1.0, 1.7]);
-    planted++;
+  // deep candy forests — dense groves with mushrooms hiding between trunks
+  const forests = [
+    { x: 48, z: -28, count: 22, sign: true },
+    { x: -52, z: -16, count: 18 },
+    { x: 40, z: 30, count: 16 },
+  ];
+  for (const forest of forests) {
+    let planted = 0;
+    attempts = 0;
+    while (planted < forest.count && attempts < 300) {
+      attempts++;
+      const gx = forest.x + rand(-11, 11);
+      const gz = forest.z + rand(-11, 11);
+      if (colliders.some((c) => (gx - c.x) ** 2 + (gz - c.z) ** 2 < (c.r + 1.6) ** 2)) continue;
+      if (inKeepOut(gx, gz, 1)) continue;
+      plantTree(scene, trees, gx, gz, [1.0, 1.7]);
+      planted++;
+      // sprinkle mushrooms near some trees
+      if (Math.random() < 0.45) {
+        const shroom = mushroom();
+        shroom.position.set(gx + rand(-2.2, 2.2), 0, gz + rand(-2.2, 2.2));
+        shroom.scale.setScalar(rand(0.7, 1.25));
+        shadowify(shroom);
+        scene.add(shroom);
+      }
+    }
+    if (forest.sign) scene.add(makeSignpost('🌲 Deep Forest', forest.x - 9, forest.z + 9));
   }
 
   return function update(dt, t) {

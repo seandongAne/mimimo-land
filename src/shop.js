@@ -11,34 +11,63 @@ export const SHOP_PRODUCTS = {
     { key: 'ball', emoji: '⚽', name: 'Bouncy ball', action: 'play', useMessage: "Let's bounce the ball!" },
     { key: 'blocks', emoji: '🧱', name: 'Building blocks', action: 'play', useMessage: "Let's build something!" },
     { key: 'kite', emoji: '🪁', name: 'Rainbow kite', action: 'play', useMessage: 'My kite can touch the clouds!' },
+    { key: 'train', emoji: '🚂', name: 'Choo-choo train', action: 'play', useMessage: 'All aboard! Choo choo!' },
+    { key: 'yoyo', emoji: '🪀', name: 'Yo-yo', action: 'play', useMessage: 'Up and down and up again!' },
+    { key: 'paints', emoji: '🎨', name: 'Paint set', action: 'play', useMessage: 'I painted a rainbow!' },
+    { key: 'puzzle', emoji: '🧩', name: 'Puzzle', action: 'play', useMessage: 'The last piece fits!' },
   ],
   bakery: [
     { key: 'croissant', emoji: '🥐', name: 'Croissant', action: 'eat', useMessage: 'Crunchy and yummy!' },
     { key: 'cupcake', emoji: '🧁', name: 'Cupcake', action: 'eat', useMessage: 'Yum, sprinkles!' },
     { key: 'cookie', emoji: '🍪', name: 'Cookie', action: 'eat', useMessage: 'Mmm, cookie!' },
     { key: 'cake', emoji: '🍰', name: 'Cake slice', action: 'eat', useMessage: 'This cake is delicious!' },
+    { key: 'baguette', emoji: '🥖', name: 'Baguette', action: 'eat', useMessage: 'Crusty and warm!' },
+    { key: 'pretzel', emoji: '🥨', name: 'Pretzel', action: 'eat', useMessage: 'Twisty and salty!' },
+    { key: 'pie', emoji: '🥧', name: 'Berry pie', action: 'eat', useMessage: 'Warm berry pie, mmm!' },
+    { key: 'birthday_cake', emoji: '🎂', name: 'Party cake', action: 'eat', useMessage: 'It feels like my birthday!' },
   ],
   market: [
     { key: 'apple', emoji: '🍎', name: 'Apple', action: 'eat', useMessage: 'Crunch! I love apples!' },
     { key: 'milk', emoji: '🥛', name: 'Milk', action: 'drink', useMessage: 'Slurp! So refreshing!' },
     { key: 'carrot', emoji: '🥕', name: 'Carrot', action: 'eat', useMessage: 'Crunchy carrot power!' },
     { key: 'watermelon', emoji: '🍉', name: 'Watermelon', action: 'eat', useMessage: 'Juicy watermelon!' },
+    { key: 'banana', emoji: '🍌', name: 'Banana', action: 'eat', useMessage: 'Peely good!' },
+    { key: 'strawberry', emoji: '🍓', name: 'Strawberry', action: 'eat', useMessage: 'Sweet little strawberry!' },
+    { key: 'cheese', emoji: '🧀', name: 'Cheese', action: 'eat', useMessage: 'Cheesy and dreamy!' },
+    { key: 'broccoli', emoji: '🥦', name: 'Broccoli', action: 'eat', useMessage: 'Tiny tree power!' },
   ],
   icecream: [
     { key: 'cone', emoji: '🍦', name: 'Swirl cone', action: 'eat', useMessage: 'Cold and creamy!' },
     { key: 'sundae', emoji: '🍨', name: 'Sundae', action: 'eat', useMessage: 'Best sundae ever!' },
     { key: 'shaved_ice', emoji: '🍧', name: 'Shaved ice', action: 'eat', useMessage: 'Brrr! Sweet snow!' },
     { key: 'pop', emoji: '🍡', name: 'Sweet pop', action: 'eat', useMessage: 'Yummy rainbow pop!' },
+    { key: 'milkshake', emoji: '🥤', name: 'Milkshake', action: 'drink', useMessage: 'Thick and dreamy!' },
+    { key: 'banana_split', emoji: '🍌', name: 'Banana split', action: 'eat', useMessage: 'Three scoops of happy!' },
+    { key: 'waffle_cone', emoji: '🧇', name: 'Waffle cone', action: 'eat', useMessage: 'Crispy waffle crunch!' },
   ],
   candy: [
     { key: 'lollipop', emoji: '🍭', name: 'Lollipop', action: 'eat', useMessage: 'Sweet lollipop!' },
     { key: 'candy', emoji: '🍬', name: 'Candy', action: 'eat', useMessage: 'Candy sparkle power!' },
     { key: 'chocolate', emoji: '🍫', name: 'Chocolate', action: 'eat', useMessage: 'Mmm, chocolate!' },
     { key: 'donut', emoji: '🍩', name: 'Donut', action: 'eat', useMessage: 'A perfect donut!' },
+    { key: 'honey', emoji: '🍯', name: 'Honey drop', action: 'eat', useMessage: 'Sticky sweet honey!' },
+    { key: 'fizzy_pop', emoji: '🫧', name: 'Fizzy pop', action: 'drink', useMessage: 'Fizzy bubbles in my nose!' },
+    { key: 'star_candy', emoji: '⭐', name: 'Star candy', action: 'eat', useMessage: 'I can taste the sky!' },
+    { key: 'flan', emoji: '🍮', name: 'Wobbly pudding', action: 'eat', useMessage: 'Wibble wobble, yum!' },
   ],
 };
 
-const ALL_PRODUCTS = Object.values(SHOP_PRODUCTS).flat();
+/** Things earned at the hospital & restaurant rather than bought in a shop. */
+export const EXTRA_ITEMS = [
+  { key: 'bandage', emoji: '🩹', name: 'Boo-boo sticker', action: 'play', useMessage: 'All patched up! 💖' },
+  { key: 'vitamin', emoji: '🍊', name: 'Vitamin gummy', action: 'eat', useMessage: 'Healthy and strong!' },
+  { key: 'noodles', emoji: '🍜', name: 'Noodle soup', action: 'eat', useMessage: 'Slurp! Warm noodles!' },
+  { key: 'pizza', emoji: '🍕', name: 'Pizza slice', action: 'eat', useMessage: 'Mmm, stretchy cheese!' },
+  { key: 'pancakes', emoji: '🥞', name: 'Pancakes', action: 'eat', useMessage: 'Sweet and fluffy!' },
+  { key: 'juice', emoji: '🧃', name: 'Berry juice', action: 'drink', useMessage: 'Glug glug… so fruity!' },
+];
+
+const ALL_PRODUCTS = [...Object.values(SHOP_PRODUCTS).flat(), ...EXTRA_ITEMS];
 const CASHIER_CHATS = [
   { player: 'Hi! How are you?', cashier: "I'm happy to see you! 🌸" },
   { player: 'I love your shop! 💖', cashier: 'Thank you! I love it too!' },
@@ -53,6 +82,13 @@ function readInventory() {
 
 function writeInventory(inventory) {
   try { localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory)); } catch { /* ignore */ }
+}
+
+/** Drop one of an item straight into the bag (hospital stickers, takeaway…). */
+export function grantItem(key) {
+  const inventory = readInventory();
+  inventory[key] = (inventory[key] || 0) + 1;
+  writeInventory(inventory);
 }
 
 const box = (w, h, d, color) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color));

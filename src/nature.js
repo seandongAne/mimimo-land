@@ -135,6 +135,25 @@ function makePark(scene) {
   scene.add(sl);
   colliders.push({ x: center.x + 7, z: center.z + 4, r: 2 });
 
+  // world-space play spots so the player can hop on and ride
+  sw.updateMatrixWorld(true);
+  sl.updateMatrixWorld(true);
+  const swingPlay = {
+    seat: sw.localToWorld(new THREE.Vector3(1.1, 1.1, 0)),
+    dir: new THREE.Vector3(0, 0, 1).applyQuaternion(sw.quaternion),
+    pivotY: 3.15,
+    exit: sw.localToWorld(new THREE.Vector3(0, 0, 3.2)),
+  };
+  const slidePlay = {
+    start: sl.localToWorld(new THREE.Vector3(0, 0, -1.55)),
+    path: [
+      { p: sl.localToWorld(new THREE.Vector3(0, 2.35, -0.35)), dur: 1.1 }, // climb the ladder
+      { p: sl.localToWorld(new THREE.Vector3(0, 2.1, 0.4)), dur: 0.35 },   // scoot to the top
+      { p: sl.localToWorld(new THREE.Vector3(0, 0.5, 3.1)), dur: 0.65 },   // wheee!
+      { p: sl.localToWorld(new THREE.Vector3(0, 0, 4.4)), dur: 0.4 },      // hop off
+    ],
+  };
+
   const benches = [
     [center.x - 2, center.z - 6, 0.3],
     [center.x + 1, center.z + 8, Math.PI + 0.4],
@@ -173,6 +192,8 @@ function makePark(scene) {
 
   // a few park trees
   scene.add(makeSignpost('🌳 Park', center.x + 11, center.z - 11));
+
+  return { swing: swingPlay, slide: slidePlay };
 }
 
 /* ------------------------------------------------------------ beach */
@@ -356,7 +377,7 @@ function makePool(scene) {
 
 /** Build every nature district. Call before makeTrees so trees stay clear. */
 export function makeNature(scene) {
-  makePark(scene);
+  const park = makePark(scene);
   makeBeach(scene);
-  return { pool: makePool(scene) };
+  return { pool: makePool(scene), park };
 }

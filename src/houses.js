@@ -415,6 +415,27 @@ function piggyHouse(color = '#ffc2d4') {
 }
 
 /**
+ * All the house styles by species, so empty lots can raise a house that
+ * matches the player. Species without their own style borrow a cousin's.
+ */
+export const HOUSE_BUILDERS = {
+  bunny: bunnyHouse,
+  kitty: kittyHouse,
+  froggy: froggyHouse,
+  puppy: puppyHouse,
+  bear: bearHouse,
+  ducky: duckyHouse,
+  foxy: foxyHouse,
+  piggy: piggyHouse,
+  blob: froggyHouse,
+  squid: froggyHouse,
+  fairy: bunnyHouse,
+  dragon: foxyHouse,
+  unicorn: bunnyHouse,
+  phoenix: duckyHouse,
+};
+
+/**
  * The animal village. Each entry knows where its door is (local +z), so the
  * game can let a mimimo walk up and go inside. Registers colliders too.
  */

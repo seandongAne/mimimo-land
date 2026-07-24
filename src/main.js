@@ -4,12 +4,16 @@ import { makeClouds } from './clouds.js';
 import { makeTrees } from './trees.js';
 import { makeHouses } from './houses.js';
 import { makeTown } from './town.js';
+import { makeCivic } from './civic.js';
+import { makeLots } from './lots.js';
+import { makeCloudland, makeCloudGate } from './cloudland.js';
 import { makeNature } from './nature.js';
 import { buildMimimo, animateMimimo, disposeMimimo, SPECIES, SHAPES, COLORS, randomName } from './mimimo.js';
 import { makeFriends } from './friends.js';
 import { makeInterior, FURNITURE_KINDS } from './interior.js';
 import { makeUnderwater } from './underwater.js';
 import { makeShopInterior } from './shop.js';
+import { makeVenueInterior } from './venues.js';
 import { Magic, POWERS } from './magic.js';
 import { initInput, getMove } from './input.js';
 import { colliders, toon } from './utils.js';
@@ -38,13 +42,19 @@ const world = makeWorld(scene);
 // Districts register colliders + tree keep-out zones first, so trees stay clear.
 const houseDoors = makeHouses(scene);
 const shopDoors = makeTown(scene);
+const venueDoors = makeCivic(scene);
+const lots = makeLots(scene);
+const cloudGate = makeCloudGate(scene);
 const nature = makeNature(scene);
 const updateTrees = makeTrees(scene);
 const updateClouds = makeClouds(scene);
 const magic = new Magic(scene);
 const interior = makeInterior();
+const interiorMagic = new Magic(interior.scene);
 const underwater = makeUnderwater();
 const shopInterior = makeShopInterior();
+const venueInterior = makeVenueInterior();
+const cloudland = makeCloudland();
 
 // ---------------------------------------------------------------- player
 function normalisePowers(value) {
@@ -75,6 +85,11 @@ function loadConfig() {
 }
 
 const config = loadConfig();
+
+function saveConfig() {
+  localStorage.setItem(SAVE_KEY, JSON.stringify(config));
+}
+
 let flightEnabled = false;
 let flightAmount = 0;
 
@@ -242,7 +257,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
   config.name = nameInput.value.trim() || randomName();
   config.powers = normalisePowers(config.powers);
   nameInput.value = config.name;
-  localStorage.setItem(SAVE_KEY, JSON.stringify(config));
+  saveConfig();
 
   mode = 'play';
   syncPedestal();
@@ -258,7 +273,9 @@ document.getElementById('startBtn').addEventListener('click', () => {
 
 document.getElementById('newBtn').addEventListener('click', () => {
   mode = 'creator';
+  parkPlay = null;
   playerRoot.position.copy(SPAWN);
+  playerRoot.position.y = 0;
   playerRoot.rotation.y = 0;
   desiredRotation = 0;
   currentRotation = 0;
@@ -357,11 +374,17 @@ function renderInventory() {
     const verb = item.action === 'play' ? 'Play' : item.action === 'drink' ? 'Drink' : 'Eat';
     button.innerHTML = `<span>${item.emoji}</span>${verb} ${item.name} <small>×${item.count}</small>`;
     button.addEventListener('click', () => {
-      if (mode !== 'play') return;
+      if (mode !== 'play' && mode !== 'interior') return;
       const used = shopInterior.useInventoryItem(item.key);
       if (!used) return;
-      friends.say(used.item.useMessage);
-      magic.useItem(playerRoot.position, used.item);
+      if (mode === 'interior') {
+        // snack party at home — guests cheer along
+        interiorMagic.useItem(interior.getPlayerPos(), used.item);
+        interior.guestsReact();
+      } else {
+        friends.say(used.item.useMessage);
+        magic.useItem(playerRoot.position, used.item);
+      }
       renderInventory();
     });
     bagTrayEl.appendChild(button);
@@ -369,7 +392,7 @@ function renderInventory() {
 }
 
 bagBtn.addEventListener('click', () => {
-  if (mode !== 'play') return;
+  if (mode !== 'play' && mode !== 'interior') return;
   renderInventory();
   bagTrayEl.classList.toggle('hidden');
 });
@@ -378,13 +401,16 @@ flyBtn.addEventListener('click', toggleFlight);
 // ---------------------------------------------------------------- houses + decorating
 const enterPromptEl = document.getElementById('enterPrompt');
 const buildBarEl = document.getElementById('buildBar');
+const buildHintEl = document.getElementById('buildHint');
 const toolRow = document.getElementById('toolRow');
 const rotateBtn = document.getElementById('rotateBtn');
 const sleepBtn = document.getElementById('sleepBtn');
 
+const BUILD_HINT_DEFAULT = '🔨 Tap the floor to place — walk with WASD / the wheel';
 let nearbyInteraction = null;
 let enteredDoor = null;
 let enteredShop = null;
+let parkPlay = null; // {type: 'swing' | 'slide', t}
 
 for (const { key, emoji } of FURNITURE_KINDS) {
   const button = document.createElement('button');
@@ -434,10 +460,21 @@ function enterHouse(door) {
   buildBarEl.classList.remove('hidden');
   bagTrayEl.classList.add('hidden');
   document.body.classList.add('building');
-  badgeEl.textContent = `🏠 ${config.name}'s ${door.key} house`;
+  badgeEl.textContent = door.custom
+    ? `🏠 ${config.name}'s dream house`
+    : `🏠 ${config.name}'s ${door.key} house`;
+  buildHintEl.textContent = BUILD_HINT_DEFAULT;
   refreshTools();
   updateSleepButton();
 }
+
+document.getElementById('inviteBtn').addEventListener('click', () => {
+  if (mode !== 'interior') return;
+  const name = interior.inviteGuest();
+  buildHintEl.textContent = name
+    ? `💌 ${name} came over to play!`
+    : '🏠 The house is already full of friends!';
+});
 
 function exitHouse() {
   if (mode !== 'interior') return;
@@ -551,6 +588,175 @@ document.getElementById('cashierTalkBtn').addEventListener('click', () => {
 });
 document.getElementById('shopExitBtn').addEventListener('click', exitShop);
 
+// ------------------------------------------- school / hospital / restaurant
+const venueBarEl = document.getElementById('venueBar');
+const venueActionRowEl = document.getElementById('venueActionRow');
+const venueFeedbackEl = document.getElementById('venueFeedback');
+let enteredVenue = null;
+
+function learnNewPower() {
+  const remaining = Object.keys(POWERS).filter((key) => !config.powers.includes(key));
+  if (!remaining.length) {
+    venueInterior.celebrate('You already know every power, superstar! 🌟', '🌟');
+    return '🌟 You know ALL the powers already!';
+  }
+  const key = remaining[Math.floor(Math.random() * remaining.length)];
+  config.powers.push(key);
+  saveConfig();
+  refreshPowerTray();
+  const power = POWERS[key];
+  venueInterior.celebrate(`You learned ${power.label}! ${power.emoji}`, power.emoji);
+  return `✨ New power learned: ${power.emoji} ${power.label}!`;
+}
+
+function renderVenueActions() {
+  venueActionRowEl.replaceChildren();
+  for (const action of venueInterior.getActions()) {
+    const button = document.createElement('button');
+    button.className = 'product-button squishy';
+    button.innerHTML = `<span class="product-emoji">${action.emoji}</span> ${action.label}`;
+    button.addEventListener('click', () => {
+      if (mode !== 'venue') return;
+      const result = venueInterior.doAction(action.key);
+      if (!result) return;
+      if (result.type === 'learnPower') {
+        venueFeedbackEl.textContent = learnNewPower();
+      } else {
+        if (result.granted) renderInventory();
+        venueFeedbackEl.textContent = result.feedback;
+      }
+    });
+    venueActionRowEl.appendChild(button);
+  }
+}
+
+function enterVenue(venueDoor) {
+  enteredVenue = venueDoor;
+  venueInterior.enter(config, venueDoor.key);
+  mode = 'venue';
+  nearbyInteraction = null;
+  enterPromptEl.classList.add('hidden');
+  venueBarEl.classList.remove('hidden');
+  bagTrayEl.classList.add('hidden');
+  document.body.classList.add('visiting');
+  friends.hidePet();
+  badgeEl.textContent = `${venueDoor.emoji} ${venueDoor.label}`;
+  document.getElementById('venueTitle').textContent = venueInterior.getTitle();
+  venueFeedbackEl.textContent = venueInterior.getHint();
+  renderVenueActions();
+}
+
+function exitVenue() {
+  if (mode !== 'venue') return;
+  mode = 'play';
+  venueBarEl.classList.add('hidden');
+  document.body.classList.remove('visiting');
+  badgeEl.textContent = `${SPECIES[config.species].emoji} ${config.name}`;
+  if (enteredVenue) playerRoot.position.set(enteredVenue.x, 0, enteredVenue.z);
+  friends.showPet();
+}
+
+document.getElementById('venueTalkBtn').addEventListener('click', () => {
+  if (mode !== 'venue') return;
+  const chat = venueInterior.talkToStaff();
+  venueFeedbackEl.textContent = `You: “${chat.player}”  ${venueInterior.getStaffName()}: “${chat.staff}”`;
+});
+document.getElementById('venueExitBtn').addEventListener('click', exitVenue);
+
+// ---------------------------------------------------------------- cloudland
+const cloudBarEl = document.getElementById('cloudBar');
+
+function enterCloud() {
+  cloudland.enter(config);
+  mode = 'cloud';
+  nearbyInteraction = null;
+  enterPromptEl.classList.add('hidden');
+  cloudBarEl.classList.remove('hidden');
+  bagTrayEl.classList.add('hidden');
+  document.body.classList.add('clouding');
+  friends.hidePet();
+  badgeEl.textContent = '☁️ Cloudland';
+}
+
+function exitCloud() {
+  if (mode !== 'cloud') return;
+  mode = 'play';
+  cloudBarEl.classList.add('hidden');
+  document.body.classList.remove('clouding');
+  badgeEl.textContent = `${SPECIES[config.species].emoji} ${config.name}`;
+  playerRoot.position.set(cloudGate.x + 3.2, 0, cloudGate.z + 2.4);
+  friends.showPet();
+}
+document.getElementById('cloudExitBtn').addEventListener('click', exitCloud);
+
+// ------------------------------------------------ park play + dream houses
+function startParkPlay(type) {
+  parkPlay = { type, t: 0, dur: type === 'swing' ? 6 : Infinity };
+  nearbyInteraction = null;
+  enterPromptEl.classList.add('hidden');
+  friends.say(type === 'swing' ? 'Wheee, swings! 🌟' : 'Slide time! 🛝');
+}
+
+function stopParkPlay(celebrate = false) {
+  if (!parkPlay) return;
+  const { type } = parkPlay;
+  parkPlay = null;
+  const spot = type === 'swing'
+    ? nature.park.swing.exit
+    : nature.park.slide.path[nature.park.slide.path.length - 1].p;
+  playerRoot.position.set(spot.x, 0, spot.z);
+  if (celebrate) {
+    magic.cast(playerRoot.position, type === 'swing' ? 'hearts' : 'rainbow');
+    friends.say(type === 'swing' ? 'That was so fun! 🎉' : 'Wheee! Again, again! 🎉');
+  }
+}
+
+/** Advance the swing/slide ride each frame while it's active. */
+function updateParkPlay(dt) {
+  parkPlay.t += dt;
+  if (parkPlay.type === 'swing') {
+    const swing = nature.park.swing;
+    const rampUp = Math.min(1, parkPlay.t / 1.2);
+    const rampDown = Math.min(1, Math.max(0, (parkPlay.dur - parkPlay.t) / 1.2));
+    const theta = Math.sin(parkPlay.t * 2.6) * 0.75 * rampUp * rampDown;
+    const rope = 2.05;
+    playerRoot.position.set(
+      swing.seat.x + swing.dir.x * Math.sin(theta) * rope,
+      swing.pivotY - Math.cos(theta) * rope,
+      swing.seat.z + swing.dir.z * Math.sin(theta) * rope
+    );
+    playerRoot.rotation.y = currentRotation = desiredRotation = Math.atan2(swing.dir.x, swing.dir.z);
+    if (parkPlay.t >= parkPlay.dur) stopParkPlay(true);
+  } else {
+    const slide = nature.park.slide;
+    let t = parkPlay.t;
+    let from = slide.start;
+    let seg = null;
+    for (const s of slide.path) {
+      if (t <= s.dur) { seg = s; break; }
+      t -= s.dur;
+      from = s.p;
+    }
+    if (!seg) return stopParkPlay(true);
+    playerRoot.position.lerpVectors(from, seg.p, t / seg.dur);
+    const dx = seg.p.x - from.x;
+    const dz = seg.p.z - from.z;
+    if (Math.hypot(dx, dz) > 0.001) {
+      playerRoot.rotation.y = currentRotation = desiredRotation = Math.atan2(dx, dz);
+    }
+  }
+}
+
+function buildDreamHouse(lot) {
+  const door = lots.buildAt(lot.index, config);
+  if (!door) return;
+  resolveCollisions(); // the new house pushes the builder gently off the lot
+  magic.cast(new THREE.Vector3(lot.x, 0, lot.z), 'hearts');
+  magic.cast(playerRoot.position, 'rainbow');
+  friends.say('My very own dream house! 🏠💖');
+  nearbyInteraction = null;
+}
+
 // ---------------------------------------------------------------- underwater pool
 const underwaterBarEl = document.getElementById('underwaterBar');
 
@@ -580,6 +786,12 @@ document.getElementById('diveExitBtn').addEventListener('click', exitUnderwater)
 
 // ---------------------------------------------------------------- nearby interactions
 function updateInteractionPrompt() {
+  if (parkPlay) {
+    nearbyInteraction = null;
+    enterPromptEl.classList.add('hidden');
+    return;
+  }
+
   let best = null;
   let bestSq = Infinity;
 
@@ -604,6 +816,58 @@ function updateInteractionPrompt() {
     }
   }
 
+  for (const door of venueDoors) {
+    const distanceSq = (playerRoot.position.x - door.x) ** 2 + (playerRoot.position.z - door.z) ** 2;
+    if (distanceSq < 3.2 ** 2 && distanceSq < bestSq) {
+      best = { type: 'venue', door, label: `${door.emoji} Visit the ${door.label}` };
+      bestSq = distanceSq;
+    }
+  }
+
+  // dream houses the player has built on lots
+  for (const door of lots.doors) {
+    const distanceSq = (playerRoot.position.x - door.x) ** 2 + (playerRoot.position.z - door.z) ** 2;
+    if (distanceSq < 3.2 ** 2 && distanceSq < bestSq) {
+      best = { type: 'house', door, label: '🚪 Go inside your dream house' };
+      bestSq = distanceSq;
+    }
+  }
+
+  // empty lots ready for building
+  const lot = lots.nearestEmptyLot(playerRoot.position);
+  if (lot) {
+    const distanceSq = (playerRoot.position.x - lot.x) ** 2 + (playerRoot.position.z - lot.z) ** 2;
+    if (distanceSq < bestSq) {
+      best = { type: 'lot', lot, label: '🔨 Build your dream house here!' };
+      bestSq = distanceSq;
+    }
+  }
+
+  // park equipment (on foot only)
+  if (!flightEnabled) {
+    const swingSeat = nature.park.swing.seat;
+    const swingSq = (playerRoot.position.x - swingSeat.x) ** 2 + (playerRoot.position.z - swingSeat.z) ** 2;
+    if (swingSq < 3.2 ** 2 && swingSq < bestSq) {
+      best = { type: 'swingplay', label: '🌟 Play on the swing' };
+      bestSq = swingSq;
+    }
+    const slideStart = nature.park.slide.start;
+    const slideSq = (playerRoot.position.x - slideStart.x) ** 2 + (playerRoot.position.z - slideStart.z) ** 2;
+    if (slideSq < 3.0 ** 2 && slideSq < bestSq) {
+      best = { type: 'slideplay', label: '🛝 Ride the slide' };
+      bestSq = slideSq;
+    }
+  }
+
+  // the cloud gate only answers to mythical mimimos
+  if (SPECIES[config.species]?.mythical) {
+    const gateSq = (playerRoot.position.x - cloudGate.x) ** 2 + (playerRoot.position.z - cloudGate.z) ** 2;
+    if (gateSq < 3.6 ** 2 && gateSq < bestSq) {
+      best = { type: 'cloud', label: '☁️ Fly up to Cloudland' };
+      bestSq = gateSq;
+    }
+  }
+
   nearbyInteraction = best;
   enterPromptEl.classList.toggle('hidden', !best);
   if (best) enterPromptEl.textContent = best.label;
@@ -612,11 +876,20 @@ function updateInteractionPrompt() {
 function activateInteraction() {
   if (mode === 'interior') return exitHouse();
   if (mode === 'shop') return exitShop();
+  if (mode === 'venue') return exitVenue();
+  if (mode === 'cloud') return exitCloud();
   if (mode === 'underwater') return exitUnderwater();
-  if (mode !== 'play' || !nearbyInteraction) return;
+  if (mode !== 'play') return;
+  if (parkPlay) return stopParkPlay(); // hop off early
+  if (!nearbyInteraction) return;
   if (nearbyInteraction.type === 'house') enterHouse(nearbyInteraction.door);
   else if (nearbyInteraction.type === 'shop') enterShop(nearbyInteraction.door);
+  else if (nearbyInteraction.type === 'venue') enterVenue(nearbyInteraction.door);
   else if (nearbyInteraction.type === 'dive') enterUnderwater();
+  else if (nearbyInteraction.type === 'swingplay') startParkPlay('swing');
+  else if (nearbyInteraction.type === 'slideplay') startParkPlay('slide');
+  else if (nearbyInteraction.type === 'cloud') enterCloud();
+  else if (nearbyInteraction.type === 'lot') buildDreamHouse(nearbyInteraction.lot);
 }
 
 enterPromptEl.addEventListener('click', activateInteraction);
@@ -679,21 +952,25 @@ function tick() {
 
   let moving = false;
   if (mode === 'play') {
-    const move = getMove();
-    moving = Math.hypot(move.x, move.z) > 0.05;
-    if (moving) {
-      playerRoot.position.x += move.x * PLAYER_SPEED * dt;
-      playerRoot.position.z += move.z * PLAYER_SPEED * dt;
-      resolveCollisions();
-      desiredRotation = Math.atan2(move.x, move.z);
-    }
+    if (parkPlay) {
+      updateParkPlay(dt);
+    } else {
+      const move = getMove();
+      moving = Math.hypot(move.x, move.z) > 0.05;
+      if (moving) {
+        playerRoot.position.x += move.x * PLAYER_SPEED * dt;
+        playerRoot.position.z += move.z * PLAYER_SPEED * dt;
+        resolveCollisions();
+        desiredRotation = Math.atan2(move.x, move.z);
+      }
 
-    let delta = desiredRotation - currentRotation;
-    while (delta > Math.PI) delta -= Math.PI * 2;
-    while (delta < -Math.PI) delta += Math.PI * 2;
-    currentRotation += delta * Math.min(1, dt * 10);
-    const spin = spinTime < SPIN_DURATION ? (spinTime / SPIN_DURATION) * Math.PI * 2 : 0;
-    playerRoot.rotation.y = currentRotation + spin;
+      let delta = desiredRotation - currentRotation;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      currentRotation += delta * Math.min(1, dt * 10);
+      const spin = spinTime < SPIN_DURATION ? (spinTime / SPIN_DURATION) * Math.PI * 2 : 0;
+      playerRoot.rotation.y = currentRotation + spin;
+    }
 
     camGoal.set(playerRoot.position.x, playerRoot.position.y + 4.8, playerRoot.position.z + 8.5);
     lookGoal.set(playerRoot.position.x, playerRoot.position.y + 1.45, playerRoot.position.z);
@@ -707,6 +984,14 @@ function tick() {
     const position = shopInterior.getPlayerPos();
     camGoal.set(position.x * 0.22, 9.6, 15.8);
     lookGoal.set(position.x * 0.22, 1.6, -0.7);
+  } else if (mode === 'venue') {
+    const position = venueInterior.getPlayerPos();
+    camGoal.set(position.x * 0.22, 9.6, 15.8);
+    lookGoal.set(position.x * 0.22, 1.6, -0.7);
+  } else if (mode === 'cloud') {
+    const position = cloudland.getPlayerPos();
+    camGoal.set(position.x, position.y + 4.8, position.z + 8.5);
+    lookGoal.set(position.x, position.y + 1.45, position.z);
   } else if (mode === 'underwater') {
     const position = underwater.getPlayerPos();
     camGoal.set(position.x, position.y + 4.2, position.z + 8.2);
@@ -728,8 +1013,13 @@ function tick() {
 
   if (mode === 'interior') {
     interior.update(dt, t, getMove());
+    interiorMagic.update(dt);
   } else if (mode === 'shop') {
     shopInterior.update(dt, t, getMove());
+  } else if (mode === 'venue') {
+    venueInterior.update(dt, t, getMove());
+  } else if (mode === 'cloud') {
+    cloudland.update(dt, t, getMove());
   } else if (mode === 'underwater') {
     underwater.update(dt, t, getMove());
   } else if (mode !== 'sleeping') {
@@ -743,6 +1033,8 @@ function tick() {
   let activeScene = scene;
   if (mode === 'interior' || mode === 'sleeping') activeScene = interior.scene;
   else if (mode === 'shop') activeScene = shopInterior.scene;
+  else if (mode === 'venue') activeScene = venueInterior.scene;
+  else if (mode === 'cloud') activeScene = cloudland.scene;
   else if (mode === 'underwater') activeScene = underwater.scene;
   renderer.render(activeScene, camera);
   requestAnimationFrame(tick);
@@ -765,8 +1057,10 @@ window.__debug = {
   interior,
   underwater,
   shopInterior,
+  venueInterior,
   houseDoors,
   shopDoors,
+  venueDoors,
   nature,
   getMode: () => mode,
   enterHouse: (key = houseDoors[0]?.key) => {
@@ -777,6 +1071,19 @@ window.__debug = {
     const door = shopDoors.find((item) => item.key === key);
     if (door) enterShop(door);
   },
+  enterVenue: (key = 'school') => {
+    const door = venueDoors.find((item) => item.key === key);
+    if (door) enterVenue(door);
+  },
+  exitVenue,
+  cloudland,
+  cloudGate,
+  lots,
+  enterCloud,
+  exitCloud,
+  startParkPlay,
+  stopParkPlay,
+  buildDreamHouse,
   enterUnderwater,
   castMagic,
   toggleFlight,

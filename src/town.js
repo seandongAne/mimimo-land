@@ -4,7 +4,7 @@ import { toon, darken, lighten, shadowify, colliders, treeKeepOut, emojiSprite, 
 const INK = '#4a3b5c';
 
 /** A little glowing shop window with white frame + cross bars. */
-function windowPane(w = 1.1, h = 1.1) {
+export function windowPane(w = 1.1, h = 1.1) {
   const g = new THREE.Group();
   const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, h + 0.2, 0.1), toon('#fffdf8'));
   g.add(frame);
@@ -21,7 +21,7 @@ function windowPane(w = 1.1, h = 1.1) {
 }
 
 /** Striped candy awning that overhangs the shopfront. */
-function awning(width, accent) {
+export function awning(width, accent) {
   const g = new THREE.Group();
   const canopy = new THREE.Mesh(new THREE.BoxGeometry(width, 0.24, 1.2), toon(accent));
   canopy.rotation.x = -0.45;

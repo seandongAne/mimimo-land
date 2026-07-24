@@ -70,6 +70,7 @@
         <button id="rotateBtn" class="squishy" title="Rotate the next furniture (R)">↻ 0°</button>
         <button id="undoBtn" class="squishy" title="Undo">↩️</button>
         <button id="clearBtn" class="squishy" title="Clear the room">🧹</button>
+        <button id="inviteBtn" class="squishy" title="Invite a friend over">💌 Invite</button>
         <button id="sleepBtn" class="squishy" disabled>🛏️ Place a bed</button>
         <button id="exitBtn" class="squishy">🚪 Leave</button>
       </div>
@@ -88,10 +89,27 @@
       <p id="shopFeedback" aria-live="polite"></p>
     </div>
 
+    <!-- school / hospital / restaurant controls -->
+    <div id="venueBar" class="hidden">
+      <p id="venueTitle"></p>
+      <div id="venueActionRow"></div>
+      <div class="shop-actions">
+        <button id="venueTalkBtn" class="squishy">💬 Talk</button>
+        <button id="venueExitBtn" class="squishy">🚪 Leave</button>
+      </div>
+      <p id="venueFeedback" aria-live="polite"></p>
+    </div>
+
     <!-- underwater controls -->
     <div id="underwaterBar" class="hidden">
       <span>🤿 Swim with WASD / the wheel</span>
       <button id="diveExitBtn" class="squishy">🪜 Climb out</button>
+    </div>
+
+    <!-- cloudland controls -->
+    <div id="cloudBar" class="hidden">
+      <span>☁️ Bounce around Cloudland</span>
+      <button id="cloudExitBtn" class="squishy">🌈 Float back down</button>
     </div>
   </div>
 
