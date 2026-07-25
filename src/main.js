@@ -335,6 +335,7 @@ const friends = makeFriends(scene, playerRoot);
 
 function sayHi() {
   if (mode === 'play') friends.greet();
+  else if (mode === 'cloud') cloudland.greet();
 }
 
 function syncFlightButton() {
@@ -453,6 +454,7 @@ document.getElementById('exitBtn').addEventListener('click', exitHouse);
 
 function enterHouse(door) {
   enteredDoor = door;
+  if (door.cloud) leaveCloudForBuilding();
   interior.enter(config, door.key);
   mode = 'interior';
   nearbyInteraction = null;
@@ -460,9 +462,11 @@ function enterHouse(door) {
   buildBarEl.classList.remove('hidden');
   bagTrayEl.classList.add('hidden');
   document.body.classList.add('building');
-  badgeEl.textContent = door.custom
-    ? `🏠 ${config.name}'s dream house`
-    : `🏠 ${config.name}'s ${door.key} house`;
+  badgeEl.textContent = door.castle
+    ? '👑 Rainbow Cloud Castle'
+    : door.custom
+      ? `🏠 ${config.name}'s dream house`
+      : `🏠 ${door.label || `${config.name}'s ${door.key} house`}`;
   buildHintEl.textContent = BUILD_HINT_DEFAULT;
   refreshTools();
   updateSleepButton();
@@ -478,9 +482,13 @@ document.getElementById('inviteBtn').addEventListener('click', () => {
 
 function exitHouse() {
   if (mode !== 'interior') return;
-  mode = 'play';
   buildBarEl.classList.add('hidden');
   document.body.classList.remove('building');
+  if (enteredDoor?.cloud) {
+    restoreCloudAfterBuilding(enteredDoor);
+    return;
+  }
+  mode = 'play';
   badgeEl.textContent = `${SPECIES[config.species].emoji} ${config.name}`;
   if (enteredDoor) {
     playerRoot.position.set(enteredDoor.x, 0, enteredDoor.z);
@@ -548,6 +556,7 @@ function renderShopProducts() {
 
 function enterShop(shopDoor) {
   enteredShop = shopDoor;
+  if (shopDoor.cloud) leaveCloudForBuilding();
   shopInterior.enter(config, shopDoor);
   mode = 'shop';
   nearbyInteraction = null;
@@ -566,9 +575,13 @@ function enterShop(shopDoor) {
 function exitShop() {
   if (mode !== 'shop') return;
   shopInterior.exit();
-  mode = 'play';
   shopBarEl.classList.add('hidden');
   document.body.classList.remove('shopping');
+  if (enteredShop?.cloud) {
+    restoreCloudAfterBuilding(enteredShop);
+    return;
+  }
+  mode = 'play';
   badgeEl.textContent = `${SPECIES[config.species].emoji} ${config.name}`;
   if (enteredShop) playerRoot.position.set(enteredShop.x, 0, enteredShop.z);
   friends.showPet();
@@ -632,6 +645,7 @@ function renderVenueActions() {
 
 function enterVenue(venueDoor) {
   enteredVenue = venueDoor;
+  if (venueDoor.cloud) leaveCloudForBuilding();
   venueInterior.enter(config, venueDoor.key);
   mode = 'venue';
   nearbyInteraction = null;
@@ -648,9 +662,13 @@ function enterVenue(venueDoor) {
 
 function exitVenue() {
   if (mode !== 'venue') return;
-  mode = 'play';
   venueBarEl.classList.add('hidden');
   document.body.classList.remove('visiting');
+  if (enteredVenue?.cloud) {
+    restoreCloudAfterBuilding(enteredVenue);
+    return;
+  }
+  mode = 'play';
   badgeEl.textContent = `${SPECIES[config.species].emoji} ${config.name}`;
   if (enteredVenue) playerRoot.position.set(enteredVenue.x, 0, enteredVenue.z);
   friends.showPet();
@@ -665,6 +683,23 @@ document.getElementById('venueExitBtn').addEventListener('click', exitVenue);
 
 // ---------------------------------------------------------------- cloudland
 const cloudBarEl = document.getElementById('cloudBar');
+
+function leaveCloudForBuilding() {
+  cloudBarEl.classList.add('hidden');
+  document.body.classList.remove('clouding');
+  enterPromptEl.classList.add('hidden');
+}
+
+function restoreCloudAfterBuilding(door) {
+  mode = 'cloud';
+  nearbyInteraction = null;
+  enterPromptEl.classList.add('hidden');
+  cloudBarEl.classList.remove('hidden');
+  document.body.classList.add('clouding');
+  badgeEl.textContent = '☁️ Cloudland';
+  cloudland.setPlayerPos(door.x, door.z);
+  friends.hidePet();
+}
 
 function enterCloud() {
   cloudland.enter(config);
@@ -757,6 +792,13 @@ function buildDreamHouse(lot) {
   nearbyInteraction = null;
 }
 
+function buildCloudHouse(lot) {
+  const door = cloudland.buildAt(lot.index, config);
+  if (!door) return;
+  nearbyInteraction = null;
+  enterPromptEl.classList.add('hidden');
+}
+
 // ---------------------------------------------------------------- underwater pool
 const underwaterBarEl = document.getElementById('underwaterBar');
 
@@ -789,6 +831,13 @@ function updateInteractionPrompt() {
   if (parkPlay) {
     nearbyInteraction = null;
     enterPromptEl.classList.add('hidden');
+    return;
+  }
+
+  if (mode === 'cloud') {
+    nearbyInteraction = cloudland.nearestInteraction();
+    enterPromptEl.classList.toggle('hidden', !nearbyInteraction);
+    if (nearbyInteraction) enterPromptEl.textContent = nearbyInteraction.label;
     return;
   }
 
@@ -877,7 +926,14 @@ function activateInteraction() {
   if (mode === 'interior') return exitHouse();
   if (mode === 'shop') return exitShop();
   if (mode === 'venue') return exitVenue();
-  if (mode === 'cloud') return exitCloud();
+  if (mode === 'cloud') {
+    if (!nearbyInteraction) return;
+    if (nearbyInteraction.type === 'house') enterHouse(nearbyInteraction.door);
+    else if (nearbyInteraction.type === 'shop') enterShop(nearbyInteraction.door);
+    else if (nearbyInteraction.type === 'venue') enterVenue(nearbyInteraction.door);
+    else if (nearbyInteraction.type === 'cloud-lot') buildCloudHouse(nearbyInteraction.lot);
+    return;
+  }
   if (mode === 'underwater') return exitUnderwater();
   if (mode !== 'play') return;
   if (parkPlay) return stopParkPlay(); // hop off early
@@ -992,6 +1048,7 @@ function tick() {
     const position = cloudland.getPlayerPos();
     camGoal.set(position.x, position.y + 4.8, position.z + 8.5);
     lookGoal.set(position.x, position.y + 1.45, position.z);
+    updateInteractionPrompt();
   } else if (mode === 'underwater') {
     const position = underwater.getPlayerPos();
     camGoal.set(position.x, position.y + 4.2, position.z + 8.2);
@@ -1084,6 +1141,7 @@ window.__debug = {
   startParkPlay,
   stopParkPlay,
   buildDreamHouse,
+  buildCloudHouse,
   enterUnderwater,
   castMagic,
   toggleFlight,

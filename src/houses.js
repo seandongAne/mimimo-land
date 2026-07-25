@@ -439,7 +439,7 @@ export const HOUSE_BUILDERS = {
  * The animal village. Each entry knows where its door is (local +z), so the
  * game can let a mimimo walk up and go inside. Registers colliders too.
  */
-const HOUSES = [
+export const VILLAGE_HOUSES = [
   { key: 'ducky', build: duckyHouse, x: -22, z: -14, r: 5.0, door: 3.0 },
   { key: 'piggy', build: piggyHouse, x: 22, z: -14, r: 5.2, door: 3.0 },
   { key: 'bunny', build: bunnyHouse, x: -34, z: -25, r: 5.2, door: 2.75 },
@@ -456,7 +456,7 @@ const HOUSES = [
  */
 export function makeHouses(scene) {
   const doors = [];
-  for (const spec of HOUSES) {
+  for (const spec of VILLAGE_HOUSES) {
     const house = spec.build();
     house.position.set(spec.x, 0, spec.z);
     // face the spawn point (0, 0, 6)

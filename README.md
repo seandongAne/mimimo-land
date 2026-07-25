@@ -51,6 +51,12 @@ be sipped and toys can be played with again and again.
     below it to swim with fish and sharks around a coral reef.
   - A **forest** grove, purple candy trees, cotton-candy clouds, a smiling sun
     and a rainbow.
+- **A giant Cloudland town** — a much bigger cloud island with all eight animal
+  houses, all five shops, the school, hospital and restaurant, plus nine lots
+  where mimimos can build and enter their own saved cloud homes.
+- **Rainbow Cloud Castle** — an enterable castle made from pink, light-blue,
+  yellow and purple clouds. Twinkle and Starmane live nearby and answer when a
+  mimimo talks to them.
 - **House interiors** — decorate with beds, sofas, chairs, tables, lamps,
   plants, TVs, rugs, teddies and balloons. Rotate each item before placing it;
   every house remembers its layout. Walk to a bed to sleep, then wake at dawn.
@@ -82,6 +88,7 @@ src/interior.js   House interiors + the build-your-own-room system
 src/magic.js      Flower, rainbow, bubble and heart powers
 src/input.js      Keyboard + virtual joystick
 src/utils.js      Toon materials, sprites, colliders, helpers
+src/cloudland.js  Giant sky town, cloud castle, residents + cloud house lots
 ```
 
 ## Ideas for what's next

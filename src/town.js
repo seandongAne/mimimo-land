@@ -44,7 +44,7 @@ export function awning(width, accent) {
  * A candy-styled shop: coloured box, pyramid roof, door, windows,
  * striped awning, and a big rooftop emoji sign with a name pill.
  */
-function shopBuilding({ color, roof, accent, emoji, label, w = 6.4, h = 4.2, d = 5 }) {
+export function shopBuilding({ color, roof, accent, emoji, label, w = 6.4, h = 4.2, d = 5 }) {
   const g = new THREE.Group();
 
   const base = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color));
@@ -116,7 +116,7 @@ function stall(emoji, color) {
   return g;
 }
 
-const SHOPS = [
+export const SHOP_BUILDINGS = [
   { key: 'toys', x: 33, z: -13, color: '#8fd0ff', roof: '#ff8f8f', accent: '#ff8fc7', emoji: '🧸', label: 'Toy Shop' },
   { key: 'bakery', x: 41, z: -4, color: '#ffdca6', roof: '#c98a5c', accent: '#ff9a6b', emoji: '🥐', label: 'Bakery' },
   { key: 'market', x: 47, z: 5, color: '#8ee0a8', roof: '#4fb07a', accent: '#ffd54f', emoji: '🛒', label: 'Supermarket', w: 7.6, h: 4.6, d: 6 },
@@ -144,7 +144,7 @@ export function makeTown(scene) {
   inner.position.set(center.x, 0.03, center.z);
   scene.add(inner);
 
-  for (const spec of SHOPS) {
+  for (const spec of SHOP_BUILDINGS) {
     const shop = shopBuilding(spec);
     shop.position.set(spec.x, 0, spec.z);
     // face the plaza centre

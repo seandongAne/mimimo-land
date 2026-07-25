@@ -594,7 +594,9 @@ body.underwater #enterPrompt { display: none !important; }
   translate: -50% 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  width: min(570px, 94vw);
   padding: 10px 14px;
   color: #35548e;
   background: rgba(240, 250, 255, 0.94);
@@ -611,15 +613,13 @@ body.underwater #enterPrompt { display: none !important; }
   background: linear-gradient(180deg, #ffe066, #ff9ed2);
 }
 body.clouding #magicBtn,
-body.clouding #greetBtn,
 body.clouding #hint,
 body.clouding #newBtn,
 body.clouding #timeBtn,
 body.clouding #bagBtn,
 body.clouding #bagTray,
 body.clouding #flyBtn,
-body.clouding #powerTray,
-body.clouding #enterPrompt { display: none !important; }
+body.clouding #powerTray { display: none !important; }
 
 /* ---------------- sleep / wake ---------------- */
 #sleepOverlay {
@@ -684,6 +684,8 @@ body.clouding #enterPrompt { display: none !important; }
   body.visiting #venueBar,
   body.underwater #underwaterBar,
   body.clouding #cloudBar { bottom: 156px; }
+  body.clouding #enterPrompt,
+  body.clouding #greetBtn { bottom: 235px; }
 }
 
 /* small screens: tuck the panel lower, shrink wordmark spacing */
@@ -698,4 +700,6 @@ body.clouding #enterPrompt { display: none !important; }
   .build-actions { flex-wrap: wrap; justify-content: center; }
   .product-button { min-width: 92px; padding: 6px 8px; font-size: 0.78rem; }
   #underwaterBar { width: min(420px, 92vw); justify-content: space-between; font-size: 0.84rem; }
+  #cloudBar { font-size: 0.8rem; gap: 7px; padding: 8px 10px; }
+  #cloudExitBtn { padding: 7px 10px; font-size: 0.78rem; }
 }

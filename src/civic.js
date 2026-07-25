@@ -214,7 +214,7 @@ function restaurantBuilding() {
   return g;
 }
 
-const VENUES = [
+export const VENUE_BUILDINGS = [
   { key: 'school', build: schoolBuilding, x: -43, z: 27, w: 10, d: 6.5, emoji: '🏫', label: 'School' },
   { key: 'hospital', build: hospitalBuilding, x: -30, z: 21, w: 10, d: 6.5, emoji: '🏥', label: 'Hospital' },
   { key: 'restaurant', build: restaurantBuilding, x: -22, z: 37, w: 8, d: 5.5, emoji: '🍜', label: 'Restaurant' },
@@ -248,7 +248,7 @@ export function makeCivic(scene) {
     scene.add(flower);
   }
 
-  for (const spec of VENUES) {
+  for (const spec of VENUE_BUILDINGS) {
     const building = spec.build();
     building.position.set(spec.x, 0, spec.z);
     // face the plaza centre
