@@ -61,18 +61,57 @@ function lotProps(spec) {
 export function makeLots(scene) {
   const doors = []; // doors of houses that have been built
   const props = new Map(); // lot index -> "build here" props
+  const houses = new Map(); // lot index -> rendered house
+  const lotColliders = new Map(); // lot index -> collider owned by that house
   const saved = readSaved();
+
+  function normaliseHome(home) {
+    return {
+      species: HOUSE_BUILDERS[home?.species] ? home.species : 'bunny',
+      color: typeof home?.color === 'string' ? home.color : '#ff9ed2',
+      floors: THREE.MathUtils.clamp(Math.round(Number(home?.floors) || 1), 1, 3),
+    };
+  }
+
+  function removeRenderedHouse(index) {
+    const house = houses.get(index);
+    if (house) {
+      house.traverse((child) => {
+        child.geometry?.dispose();
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        for (const material of materials) {
+          material?.map?.dispose();
+          material?.dispose?.();
+        }
+      });
+      house.removeFromParent();
+      houses.delete(index);
+    }
+
+    const collider = lotColliders.get(index);
+    const colliderIndex = colliders.indexOf(collider);
+    if (colliderIndex >= 0) colliders.splice(colliderIndex, 1);
+    lotColliders.delete(index);
+
+    const doorIndex = doors.findIndex((door) => door.lotIndex === index);
+    if (doorIndex >= 0) doors.splice(doorIndex, 1);
+  }
 
   function raiseHouse(index, home) {
     const spec = LOTS[index];
-    const builder = HOUSE_BUILDERS[home.species] || HOUSE_BUILDERS.bunny;
-    const house = builder(home.color, home.floors);
+    const normalised = normaliseHome(home);
+    removeRenderedHouse(index);
+    const builder = HOUSE_BUILDERS[normalised.species];
+    const house = builder(normalised.color, normalised.floors);
     house.position.set(spec.x, 0, spec.z);
     const angle = Math.atan2(0 - spec.x, 6 - spec.z); // face the spawn point
     house.rotation.y = angle;
     shadowify(house);
     scene.add(house);
-    colliders.push({ x: spec.x, z: spec.z, r: 5.4 });
+    houses.set(index, house);
+    const collider = { x: spec.x, z: spec.z, r: 5.4 };
+    colliders.push(collider);
+    lotColliders.set(index, collider);
 
     if (props.has(index)) {
       props.get(index).removeFromParent();
@@ -81,9 +120,12 @@ export function makeLots(scene) {
 
     const reach = 3.1 + 1.4;
     const door = {
-      key: `dream${index}`,
+      key: 'dream' + index,
+      lotIndex: index,
       custom: true,
-      floors: THREE.MathUtils.clamp(Math.round(Number(home.floors) || 1), 1, 3),
+      species: normalised.species,
+      color: normalised.color,
+      floors: normalised.floors,
       x: spec.x + Math.sin(angle) * reach,
       z: spec.z + Math.cos(angle) * reach,
     };
@@ -117,10 +159,29 @@ export function makeLots(scene) {
   /** Build the player's house on a lot. Returns its door (or null). */
   function buildAt(index, config) {
     if (saved[index]) return null;
-    saved[index] = { species: config.species, color: config.color, floors: config.floors || 1 };
+    saved[index] = normaliseHome(config);
     writeSaved(saved);
     return raiseHouse(index, saved[index]);
   }
 
-  return { doors, nearestEmptyLot, buildAt };
+  /** Update an already-built home without losing its decorated interior. */
+  function remodelAt(index, config) {
+    if (!saved[index]) return null;
+    saved[index] = normaliseHome(config);
+    writeSaved(saved);
+    return raiseHouse(index, saved[index]);
+  }
+
+  function firstAvailableLot() {
+    const index = LOTS.findIndex((_, lotIndex) => !saved[lotIndex]);
+    return index < 0 ? null : { index, ...LOTS[index] };
+  }
+
+  function primaryHome() {
+    const index = LOTS.findIndex((_, lotIndex) => Boolean(saved[lotIndex]));
+    if (index < 0) return null;
+    return { index, ...LOTS[index], ...normaliseHome(saved[index]) };
+  }
+
+  return { doors, nearestEmptyLot, buildAt, remodelAt, firstAvailableLot, primaryHome };
 }

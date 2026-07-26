@@ -18,7 +18,8 @@ Then open the printed URL (defaults to http://localhost:5173).
 
 | Action        | Desktop            | Touch                |
 | ------------- | ------------------ | -------------------- |
-| Explore       | Hold mouse / WASD / arrows | Drag the wheel       |
+| Explore       | WASD / arrow keys  | Drag the wheel       |
+| Turn the view | Drag the mouse     | —                    |
 | Choose power  | Number keys 1–0     | Tap a power bubble   |
 | Use power ✨   | SPACE or M          | Tap the big power button |
 | Talk 👋        | H                   | Tap the 👋 button     |
@@ -51,6 +52,9 @@ be sipped and toys can be played with again and again.
     below it to swim with fish and sharks around a coral reef.
   - A **forest** grove, purple candy trees, cotton-candy clouds, a smiling sun
     and a rainbow.
+- **My house** — use the always-visible house button in regular Mimimo Land to
+  build or remodel your saved home with any Mimimo shape, color and 1–3
+  interior floors without losing each floor's furniture.
 - **A giant Cloudland town** — a much bigger cloud island with all eight animal
   houses, all five shops, the school, hospital and restaurant, plus nine lots
   where mimimos can choose 1–3 separately decorated interior floors, any Mimimo

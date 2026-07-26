@@ -280,6 +280,20 @@ html, body {
 #bagBtn { right: 18px; }
 #flyBtn { right: 92px; background: linear-gradient(180deg, #e8f8ff, #cdbdff); }
 
+#homeBtn {
+  left: 22px;
+  bottom: 26px;
+  padding: 10px 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff2b8, #9be7c4);
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: 0 5px 0 var(--ink);
+}
+#homeBtn:active { box-shadow: 0 2px 0 var(--ink); translate: 0 3px; }
+#scene.view-dragging { cursor: grabbing; }
+
 #bagTray {
   top: 118px;
   right: 18px;
@@ -582,6 +596,7 @@ body.building #hint,
 body.building #newBtn,
 body.building #timeBtn,
 body.building #flyBtn,
+body.building #homeBtn,
 body.building #powerTray,
 body.building #enterPrompt { display: none !important; }
 body.building #bagBtn, body.building #bagTray { z-index: 8; }
@@ -641,6 +656,7 @@ body.shopping #timeBtn,
 body.shopping #bagBtn,
 body.shopping #bagTray,
 body.shopping #flyBtn,
+body.shopping #homeBtn,
 body.shopping #powerTray,
 body.shopping #enterPrompt { display: none !important; }
 
@@ -653,6 +669,7 @@ body.visiting #timeBtn,
 body.visiting #bagBtn,
 body.visiting #bagTray,
 body.visiting #flyBtn,
+body.visiting #homeBtn,
 body.visiting #powerTray,
 body.visiting #enterPrompt { display: none !important; }
 
@@ -680,6 +697,7 @@ body.underwater #timeBtn,
 body.underwater #bagBtn,
 body.underwater #bagTray,
 body.underwater #flyBtn,
+body.underwater #homeBtn,
 body.underwater #powerTray,
 body.underwater #enterPrompt { display: none !important; }
 
@@ -715,6 +733,7 @@ body.clouding #timeBtn,
 body.clouding #bagBtn,
 body.clouding #bagTray,
 body.clouding #flyBtn,
+body.clouding #homeBtn,
 body.clouding #powerTray { display: none !important; }
 
 /* ---------------- sleep / wake ---------------- */
@@ -774,6 +793,7 @@ body.clouding #powerTray { display: none !important; }
 }
 @media (pointer: coarse) {
   #joy { display: block; }
+  #homeBtn { bottom: 156px; }
   #hint { bottom: 156px; }
   body.building #buildBar,
   body.shopping #shopBar,

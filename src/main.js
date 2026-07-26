@@ -133,6 +133,7 @@ const timeBtn = document.getElementById('timeBtn');
 const bagBtn = document.getElementById('bagBtn');
 const bagTrayEl = document.getElementById('bagTray');
 const flyBtn = document.getElementById('flyBtn');
+const homeBtn = document.getElementById('homeBtn');
 
 let mode = 'creator';
 let spinTime = SPIN_DURATION;
@@ -291,74 +292,67 @@ document.getElementById('newBtn').addEventListener('click', () => {
 });
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
-const pointerNdc = new THREE.Vector2();
-const pointerRaycaster = new THREE.Raycaster();
-const pointerPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-const pointerWorld = new THREE.Vector3();
-let mouseMoveActive = false;
-let mousePointerId = null;
+let cameraYaw = 0;
+let cameraHeight = 4.8;
+let viewDragActive = false;
+let viewPointerId = null;
+let lastViewX = 0;
+let lastViewY = 0;
 
-function updatePointerPosition(event) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointerNdc.set(
-    ((event.clientX - rect.left) / rect.width) * 2 - 1,
-    -((event.clientY - rect.top) / rect.height) * 2 + 1
-  );
-}
-
-function canUseMouseMovement() {
-  return !pendingHouseBuild && ['play', 'shop', 'venue', 'cloud', 'underwater'].includes(mode);
+function canRotateView() {
+  return mode === 'play' && !pendingHouseBuild && !parkPlay;
 }
 
 renderer.domElement.addEventListener('pointerdown', (event) => {
-  if (isTouch || event.pointerType === 'touch' || event.button !== 0 || !canUseMouseMovement()) return;
-  updatePointerPosition(event);
-  mouseMoveActive = true;
-  mousePointerId = event.pointerId;
+  if (event.pointerType === 'touch' || (event.button !== 0 && event.button !== 2) || !canRotateView()) return;
+  viewDragActive = true;
+  viewPointerId = event.pointerId;
+  lastViewX = event.clientX;
+  lastViewY = event.clientY;
   renderer.domElement.setPointerCapture?.(event.pointerId);
+  renderer.domElement.classList.add('view-dragging');
   event.preventDefault();
 });
 
 window.addEventListener('pointermove', (event) => {
-  if (!mouseMoveActive || event.pointerId !== mousePointerId) return;
-  updatePointerPosition(event);
+  if (!viewDragActive || event.pointerId !== viewPointerId) return;
+  const dx = event.clientX - lastViewX;
+  const dy = event.clientY - lastViewY;
+  lastViewX = event.clientX;
+  lastViewY = event.clientY;
+  cameraYaw -= dx * 0.008;
+  cameraHeight = THREE.MathUtils.clamp(cameraHeight + dy * 0.02, 2.8, 8.2);
 });
 
-function stopMouseMovement(event) {
-  if (event?.pointerId != null && event.pointerId !== mousePointerId) return;
-  mouseMoveActive = false;
-  mousePointerId = null;
+function stopViewDrag(event) {
+  if (event?.pointerId != null && event.pointerId !== viewPointerId) return;
+  viewDragActive = false;
+  viewPointerId = null;
+  renderer.domElement.classList.remove('view-dragging');
 }
 
-window.addEventListener('pointerup', stopMouseMovement);
-window.addEventListener('pointercancel', stopMouseMovement);
-window.addEventListener('blur', () => stopMouseMovement());
+window.addEventListener('pointerup', stopViewDrag);
+window.addEventListener('pointercancel', stopViewDrag);
+window.addEventListener('blur', () => stopViewDrag());
+renderer.domElement.addEventListener('contextmenu', (event) => {
+  if (canRotateView()) event.preventDefault();
+});
 
-/** Translate a held mouse pointer into movement on the active scene's floor. */
-function getPointerMove(position) {
-  if (!mouseMoveActive || isTouch || !canUseMouseMovement()) return null;
-  pointerRaycaster.setFromCamera(pointerNdc, camera);
-  pointerPlane.constant = -position.y;
-  if (pointerRaycaster.ray.intersectPlane(pointerPlane, pointerWorld)) {
-    const dx = pointerWorld.x - position.x;
-    const dz = pointerWorld.z - position.z;
-    const distance = Math.hypot(dx, dz);
-    if (distance < 0.12) return { x: 0, z: 0 };
-    const strength = Math.min(1, distance / 1.4);
-    return { x: (dx / distance) * strength, z: (dz / distance) * strength };
-  }
-  const { x, z } = pointerRaycaster.ray.direction;
-  const length = Math.hypot(x, z);
-  return length > 0.001 ? { x: x / length, z: z / length } : null;
-}
-
-function getActiveMove(position) {
-  return getPointerMove(position) || getMove();
+/** Keep land movement relative to the camera after the player rotates the view. */
+function getPlayMove() {
+  const move = getMove();
+  if (Math.hypot(move.x, move.z) < 0.001) return move;
+  const cosine = Math.cos(cameraYaw);
+  const sine = Math.sin(cameraYaw);
+  return {
+    x: move.x * cosine + move.z * sine,
+    z: -move.x * sine + move.z * cosine,
+  };
 }
 
 hintEl.textContent = isTouch
-  ? 'Drag the wheel · choose a power · tap it to cast'
-  : 'WASD / arrows or hold the mouse to move · E interacts · SPACE casts';
+  ? 'Drag the wheel to move · drag a mouse to turn the view · tap a power to cast'
+  : 'WASD / arrows move · drag the mouse to turn the view · E interacts · SPACE casts';
 
 function refreshTimeButton() {
   const phase = world.getPhase();
@@ -486,6 +480,8 @@ const houseFloorRow = document.getElementById('houseFloorRow');
 const houseShapeRow = document.getElementById('houseShapeRow');
 const houseColorRow = document.getElementById('houseColorRow');
 const houseChoiceSummary = document.getElementById('houseChoiceSummary');
+const houseCustomizerTitleEl = document.getElementById('houseCustomizerTitle');
+const confirmHouseBtn = document.getElementById('confirmHouseBtn');
 const houseDraft = { species: config.species, color: config.color, floors: 1 };
 let pendingHouseBuild = null;
 
@@ -493,7 +489,7 @@ for (let floors = 1; floors <= 3; floors++) {
   const button = document.createElement('button');
   button.className = 'chip squishy';
   button.dataset.floors = String(floors);
-  button.textContent = floors === 1 ? '1 floor' : floors + ' floors';
+  button.textContent = floors === 1 ? '1 inside floor' : floors + ' inside floors';
   button.addEventListener('click', () => {
     houseDraft.floors = floors;
     refreshHouseCustomizer();
@@ -541,12 +537,25 @@ function refreshHouseCustomizer() {
     floorLabel + ' · ' + SPECIES[houseDraft.species].label + ' shape · ' + houseDraft.color;
 }
 
-function openHouseCustomizer(lot, cloud = false) {
-  pendingHouseBuild = { lot, cloud };
-  houseDraft.species = config.species;
-  houseDraft.color = config.color;
-  houseDraft.floors = 1;
+function openHouseCustomizer(lot, cloud = false, options = {}) {
+  const existing = options.existing || null;
+  pendingHouseBuild = {
+    lot,
+    cloud,
+    remodel: Boolean(options.remodel),
+    fromHomeButton: Boolean(options.fromHomeButton),
+  };
+  houseDraft.species = SPECIES[existing?.species] ? existing.species : config.species;
+  houseDraft.color = COLORS.includes(existing?.color) ? existing.color : config.color;
+  houseDraft.floors = THREE.MathUtils.clamp(Math.round(Number(existing?.floors) || 1), 1, 3);
+  houseCustomizerTitleEl.textContent = cloud
+    ? 'Design your Cloudland house'
+    : pendingHouseBuild.remodel
+      ? 'Remodel your regular-land house'
+      : 'Design your regular-land house';
+  confirmHouseBtn.textContent = pendingHouseBuild.remodel ? 'Save my house!' : 'Build my house!';
   refreshHouseCustomizer();
+  stopViewDrag();
   houseCustomizerEl.classList.remove('hidden');
   enterPromptEl.classList.add('hidden');
   document.body.classList.add('house-planning');
@@ -558,17 +567,58 @@ function closeHouseCustomizer() {
   document.body.classList.remove('house-planning');
 }
 
+function focusDreamHome(lot, door) {
+  const outwardX = door.x - lot.x;
+  const outwardZ = door.z - lot.z;
+  const length = Math.hypot(outwardX, outwardZ) || 1;
+  playerRoot.position.set(
+    door.x + (outwardX / length) * 1.2,
+    0,
+    door.z + (outwardZ / length) * 1.2
+  );
+  currentRotation = desiredRotation = Math.atan2(
+    lot.x - playerRoot.position.x,
+    lot.z - playerRoot.position.z
+  );
+  playerRoot.rotation.y = currentRotation;
+}
+
+function openMyHomeCustomizer() {
+  if (mode !== 'play') return;
+  const existing = lots.primaryHome();
+  const lot = existing || lots.firstAvailableLot();
+  if (!lot) {
+    friends.say('Every regular-land home lot is full!');
+    return;
+  }
+  bagTrayEl.classList.add('hidden');
+  openHouseCustomizer(lot, false, {
+    existing,
+    remodel: Boolean(existing),
+    fromHomeButton: true,
+  });
+}
+
 function confirmHouseBuild() {
   if (!pendingHouseBuild) return;
   const request = pendingHouseBuild;
   const choice = { ...houseDraft, name: config.name };
   closeHouseCustomizer();
-  if (request.cloud) buildCloudHouse(request.lot, choice);
-  else buildDreamHouse(request.lot, choice);
+
+  if (request.cloud) {
+    buildCloudHouse(request.lot, choice);
+    return;
+  }
+
+  const door = request.remodel
+    ? remodelDreamHouse(request.lot, choice)
+    : buildDreamHouse(request.lot, choice);
+  if (request.fromHomeButton && door) focusDreamHome(request.lot, door);
 }
 
 document.getElementById('cancelHouseBtn').addEventListener('click', closeHouseCustomizer);
-document.getElementById('confirmHouseBtn').addEventListener('click', confirmHouseBuild);
+confirmHouseBtn.addEventListener('click', confirmHouseBuild);
+homeBtn.addEventListener('click', openMyHomeCustomizer);
 houseCustomizerEl.addEventListener('pointerdown', (event) => {
   if (event.target === houseCustomizerEl) closeHouseCustomizer();
 });
@@ -973,19 +1023,30 @@ function updateParkPlay(dt) {
 
 function buildDreamHouse(lot, houseConfig = config) {
   const door = lots.buildAt(lot.index, houseConfig);
-  if (!door) return;
-  resolveCollisions(); // the new house pushes the builder gently off the lot
+  if (!door) return null;
+  resolveCollisions();
   magic.cast(new THREE.Vector3(lot.x, 0, lot.z), 'hearts');
   magic.cast(playerRoot.position, 'rainbow');
-  friends.say('My very own dream house! 🏠💖');
+  friends.say('My very own dream house!');
   nearbyInteraction = null;
+  return door;
+}
+
+function remodelDreamHouse(lot, houseConfig) {
+  const door = lots.remodelAt(lot.index, houseConfig);
+  if (!door) return null;
+  magic.cast(new THREE.Vector3(lot.x, 0, lot.z), 'hearts');
+  friends.say('My dream house has a brand-new look!');
+  nearbyInteraction = null;
+  return door;
 }
 
 function buildCloudHouse(lot, houseConfig = config) {
   const door = cloudland.buildAt(lot.index, houseConfig);
-  if (!door) return;
+  if (!door) return null;
   nearbyInteraction = null;
   enterPromptEl.classList.add('hidden');
+  return door;
 }
 
 // ---------------------------------------------------------------- underwater pool
@@ -1206,7 +1267,7 @@ function tick() {
     if (parkPlay) {
       updateParkPlay(dt);
     } else {
-      const move = pendingHouseBuild ? { x: 0, z: 0 } : getActiveMove(playerRoot.position);
+      const move = pendingHouseBuild ? { x: 0, z: 0 } : getPlayMove();
       moving = Math.hypot(move.x, move.z) > 0.05;
       if (moving) {
         playerRoot.position.x += move.x * PLAYER_SPEED * dt;
@@ -1223,7 +1284,11 @@ function tick() {
       playerRoot.rotation.y = currentRotation + spin;
     }
 
-    camGoal.set(playerRoot.position.x, playerRoot.position.y + 4.8, playerRoot.position.z + 8.5);
+    camGoal.set(
+      playerRoot.position.x + Math.sin(cameraYaw) * 8.5,
+      playerRoot.position.y + cameraHeight,
+      playerRoot.position.z + Math.cos(cameraYaw) * 8.5
+    );
     lookGoal.set(playerRoot.position.x, playerRoot.position.y + 1.45, playerRoot.position.z);
     updateInteractionPrompt();
   } else if (mode === 'interior' || mode === 'sleeping') {
@@ -1267,13 +1332,13 @@ function tick() {
     interior.update(dt, t, getMove());
     interiorMagic.update(dt);
   } else if (mode === 'shop') {
-    shopInterior.update(dt, t, getActiveMove(shopInterior.getPlayerPos()));
+    shopInterior.update(dt, t, getMove());
   } else if (mode === 'venue') {
-    venueInterior.update(dt, t, getActiveMove(venueInterior.getPlayerPos()));
+    venueInterior.update(dt, t, getMove());
   } else if (mode === 'cloud') {
-    cloudland.update(dt, t, pendingHouseBuild ? { x: 0, z: 0 } : getActiveMove(cloudland.getPlayerPos()));
+    cloudland.update(dt, t, pendingHouseBuild ? { x: 0, z: 0 } : getMove());
   } else if (mode === 'underwater') {
-    underwater.update(dt, t, getActiveMove(underwater.getPlayerPos()));
+    underwater.update(dt, t, getMove());
   } else if (mode !== 'sleeping') {
     animateMimimo(playerBody, t, dt, moving);
     updateClouds(dt, t);
@@ -1314,6 +1379,8 @@ window.__debug = {
   shopDoors,
   venueDoors,
   nature,
+  getCameraView: () => ({ yaw: cameraYaw, height: cameraHeight }),
+  openMyHomeCustomizer,
   getMode: () => mode,
   enterHouse: (key = houseDoors[0]?.key) => {
     const door = houseDoors.find((item) => item.key === key);
