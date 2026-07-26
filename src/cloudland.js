@@ -434,8 +434,7 @@ export function makeCloudland() {
     const pad = cloudPad(5.5);
     pad.position.set(spot.x, 0, spot.z);
     scene.add(pad);
-    const doorZ = (home.floors || 1) > 1 ? 3.62 : 3.05;
-    const house = cloudifyAnimalHouse(builder(home.color, home.floors), index, doorZ, home.color);
+    const house = cloudifyAnimalHouse(builder(home.color, home.floors), index, 3.05, home.color);
     house.position.set(spot.x, 0, spot.z);
     const angle = Math.atan2(-spot.x, 2 - spot.z);
     house.rotation.y = angle;
@@ -443,7 +442,7 @@ export function makeCloudland() {
     scene.add(house);
     localColliders.push({ x: spot.x, z: spot.z, r: 5.4 });
     const nameTag = textSprite(`${home.name || 'A mimimo'}'s cloud home`, { fontSize: 34 });
-    nameTag.position.set(0, 9.2 + ((home.floors || 1) - 1) * 3.7, 0);
+    nameTag.position.set(0, 9.2, 0);
     house.add(nameTag);
     if (lotProps.has(index)) {
       lotProps.get(index).removeFromParent();
@@ -453,6 +452,7 @@ export function makeCloudland() {
     const door = {
       key: `cloud-dream-${index}`, label: `${home.name || 'your'}'s cloud home`,
       custom: true, cloud: true,
+      floors: THREE.MathUtils.clamp(Math.round(Number(home.floors) || 1), 1, 3),
       x: spot.x + Math.sin(angle) * reach,
       z: spot.z + Math.cos(angle) * reach,
     };

@@ -28,7 +28,6 @@ function eyeWindow(radius = 0.55) {
 
 function door(color, width = 0.75) {
   const group = new THREE.Group();
-  group.userData.houseDoor = true;
   const slab = new THREE.Mesh(new THREE.CapsuleGeometry(width, 0.9, 6, 12), toon(color));
   slab.scale.z = 0.3;
   group.add(slab);
@@ -171,14 +170,12 @@ function froggyHouse(color = '#8ee08e') {
   }
 
   const mouth = new THREE.Mesh(new THREE.CapsuleGeometry(0.85, 1.7, 6, 12), toon(darken(color, 0.45)));
-  mouth.userData.houseDoor = true;
   mouth.rotation.z = Math.PI / 2;
   mouth.scale.set(0.8, 1, 0.3);
   mouth.position.set(0, 1.15, 3.3);
   house.add(mouth);
 
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.1, 20), toon('#5fcf9a'));
-  pad.userData.keepGround = true;
   pad.position.set(0, 0.05, 5.2);
   pad.receiveShadow = true;
   house.add(pad);
@@ -554,40 +551,13 @@ function phoenixHouse(color = '#ff7043') {
   return house;
 }
 
-/** Stack rounded stories below the recognizable Mimimo-shaped top floor. */
-function addHouseFloors(house, color, requestedFloors = 1) {
-  const floors = THREE.MathUtils.clamp(Math.round(Number(requestedFloors) || 1), 1, 3);
-  house.userData.floors = floors;
-  if (floors === 1) return house;
-
-  const storyHeight = 3.7;
-  const lift = (floors - 1) * storyHeight;
-  for (const child of house.children) {
-    if (!child.userData.houseDoor && !child.userData.keepGround) child.position.y += lift;
-  }
-
-  for (let level = 0; level < floors - 1; level++) {
-    const centerY = storyHeight / 2 + level * storyHeight;
-    const story = new THREE.Group();
-    const wall = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.55, 3.72, storyHeight, 24),
-      toon(level % 2 ? lighten(color, 0.1) : color)
-    );
-    wall.position.y = centerY;
-    story.add(wall);
-
-    const band = new THREE.Mesh(new THREE.TorusGeometry(3.58, 0.13, 8, 28), toon(darken(color, 0.16)));
-    band.position.y = centerY + storyHeight / 2 - 0.08;
-    band.rotation.x = Math.PI / 2;
-    story.add(band);
-
-    for (const side of [-1, 1]) {
-      const window = eyeWindow(0.42);
-      window.position.set(side * 1.35, centerY + 0.45, 3.62);
-      story.add(window);
-    }
-    house.add(story);
-  }
+/** Record how many independently decorated rooms this custom home contains. */
+function setInteriorFloorCount(house, requestedFloors = 1) {
+  house.userData.floors = THREE.MathUtils.clamp(
+    Math.round(Number(requestedFloors) || 1),
+    1,
+    3
+  );
   return house;
 }
 /**
@@ -595,20 +565,20 @@ function addHouseFloors(house, color, requestedFloors = 1) {
  * can use any Mimimo silhouette, color, and supported floor count.
  */
 export const HOUSE_BUILDERS = {
-  bunny: (color, floors) => addHouseFloors(bunnyHouse(color), color, floors),
-  kitty: (color, floors) => addHouseFloors(kittyHouse(color), color, floors),
-  froggy: (color, floors) => addHouseFloors(froggyHouse(color), color, floors),
-  puppy: (color, floors) => addHouseFloors(puppyHouse(color), color, floors),
-  bear: (color, floors) => addHouseFloors(bearHouse(color), color, floors),
-  ducky: (color, floors) => addHouseFloors(duckyHouse(color), color, floors),
-  foxy: (color, floors) => addHouseFloors(foxyHouse(color), color, floors),
-  piggy: (color, floors) => addHouseFloors(piggyHouse(color), color, floors),
-  blob: (color, floors) => addHouseFloors(blobHouse(color), color, floors),
-  squid: (color, floors) => addHouseFloors(squidHouse(color), color, floors),
-  fairy: (color, floors) => addHouseFloors(fairyHouse(color), color, floors),
-  dragon: (color, floors) => addHouseFloors(dragonHouse(color), color, floors),
-  unicorn: (color, floors) => addHouseFloors(unicornHouse(color), color, floors),
-  phoenix: (color, floors) => addHouseFloors(phoenixHouse(color), color, floors),
+  bunny: (color, floors) => setInteriorFloorCount(bunnyHouse(color), floors),
+  kitty: (color, floors) => setInteriorFloorCount(kittyHouse(color), floors),
+  froggy: (color, floors) => setInteriorFloorCount(froggyHouse(color), floors),
+  puppy: (color, floors) => setInteriorFloorCount(puppyHouse(color), floors),
+  bear: (color, floors) => setInteriorFloorCount(bearHouse(color), floors),
+  ducky: (color, floors) => setInteriorFloorCount(duckyHouse(color), floors),
+  foxy: (color, floors) => setInteriorFloorCount(foxyHouse(color), floors),
+  piggy: (color, floors) => setInteriorFloorCount(piggyHouse(color), floors),
+  blob: (color, floors) => setInteriorFloorCount(blobHouse(color), floors),
+  squid: (color, floors) => setInteriorFloorCount(squidHouse(color), floors),
+  fairy: (color, floors) => setInteriorFloorCount(fairyHouse(color), floors),
+  dragon: (color, floors) => setInteriorFloorCount(dragonHouse(color), floors),
+  unicorn: (color, floors) => setInteriorFloorCount(unicornHouse(color), floors),
+  phoenix: (color, floors) => setInteriorFloorCount(phoenixHouse(color), floors),
 };
 
 /**

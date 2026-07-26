@@ -295,34 +295,70 @@ const pointerNdc = new THREE.Vector2();
 const pointerRaycaster = new THREE.Raycaster();
 const pointerPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const pointerWorld = new THREE.Vector3();
-let mouseFacingActive = false;
+let mouseMoveActive = false;
+let mousePointerId = null;
 
-window.addEventListener('pointermove', (event) => {
-  if (isTouch || event.pointerType === 'touch') return;
+function updatePointerPosition(event) {
   const rect = renderer.domElement.getBoundingClientRect();
   pointerNdc.set(
     ((event.clientX - rect.left) / rect.width) * 2 - 1,
     -((event.clientY - rect.top) / rect.height) * 2 + 1
   );
-  mouseFacingActive = true;
+}
+
+function canUseMouseMovement() {
+  return !pendingHouseBuild && ['play', 'shop', 'venue', 'cloud', 'underwater'].includes(mode);
+}
+
+renderer.domElement.addEventListener('pointerdown', (event) => {
+  if (isTouch || event.pointerType === 'touch' || event.button !== 0 || !canUseMouseMovement()) return;
+  updatePointerPosition(event);
+  mouseMoveActive = true;
+  mousePointerId = event.pointerId;
+  renderer.domElement.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
 });
 
-/** Translate the cursor into a heading on the active scene's horizontal plane. */
-function getPointerHeading(position) {
-  if (!mouseFacingActive || isTouch || pendingHouseBuild) return null;
+window.addEventListener('pointermove', (event) => {
+  if (!mouseMoveActive || event.pointerId !== mousePointerId) return;
+  updatePointerPosition(event);
+});
+
+function stopMouseMovement(event) {
+  if (event?.pointerId != null && event.pointerId !== mousePointerId) return;
+  mouseMoveActive = false;
+  mousePointerId = null;
+}
+
+window.addEventListener('pointerup', stopMouseMovement);
+window.addEventListener('pointercancel', stopMouseMovement);
+window.addEventListener('blur', () => stopMouseMovement());
+
+/** Translate a held mouse pointer into movement on the active scene's floor. */
+function getPointerMove(position) {
+  if (!mouseMoveActive || isTouch || !canUseMouseMovement()) return null;
   pointerRaycaster.setFromCamera(pointerNdc, camera);
   pointerPlane.constant = -position.y;
   if (pointerRaycaster.ray.intersectPlane(pointerPlane, pointerWorld)) {
     const dx = pointerWorld.x - position.x;
     const dz = pointerWorld.z - position.z;
-    if (Math.hypot(dx, dz) > 0.08) return Math.atan2(dx, dz);
+    const distance = Math.hypot(dx, dz);
+    if (distance < 0.12) return { x: 0, z: 0 };
+    const strength = Math.min(1, distance / 1.4);
+    return { x: (dx / distance) * strength, z: (dz / distance) * strength };
   }
   const { x, z } = pointerRaycaster.ray.direction;
-  return Math.hypot(x, z) > 0.001 ? Math.atan2(x, z) : null;
+  const length = Math.hypot(x, z);
+  return length > 0.001 ? { x: x / length, z: z / length } : null;
 }
+
+function getActiveMove(position) {
+  return getPointerMove(position) || getMove();
+}
+
 hintEl.textContent = isTouch
   ? 'Drag the wheel · choose a power · tap it to cast'
-  : 'WASD / arrows move · point the mouse to look · E interacts · SPACE casts';
+  : 'WASD / arrows or hold the mouse to move · E interacts · SPACE casts';
 
 function refreshTimeButton() {
   const phase = world.getPhase();
@@ -432,6 +468,8 @@ flyBtn.addEventListener('click', toggleFlight);
 const enterPromptEl = document.getElementById('enterPrompt');
 const buildBarEl = document.getElementById('buildBar');
 const buildHintEl = document.getElementById('buildHint');
+const floorNavEl = document.getElementById('floorNav');
+const floorButtonsEl = document.getElementById('floorButtons');
 const toolRow = document.getElementById('toolRow');
 const rotateBtn = document.getElementById('rotateBtn');
 const sleepBtn = document.getElementById('sleepBtn');
@@ -498,7 +536,7 @@ function refreshHouseCustomizer() {
   for (const swatch of houseColorRow.children) {
     swatch.classList.toggle('selected', swatch.dataset.color === houseDraft.color);
   }
-  const floorLabel = houseDraft.floors === 1 ? '1 floor' : houseDraft.floors + ' floors';
+  const floorLabel = houseDraft.floors === 1 ? '1 floor inside' : houseDraft.floors + ' floors inside';
   houseChoiceSummary.textContent =
     floorLabel + ' · ' + SPECIES[houseDraft.species].label + ' shape · ' + houseDraft.color;
 }
@@ -557,6 +595,30 @@ function refreshTools() {
   rotateBtn.textContent = `↻ ${interior.getPlacementRotation()}°`;
 }
 
+function refreshFloorNavigation() {
+  const info = interior.getFloorInfo();
+  floorButtonsEl.replaceChildren();
+  floorNavEl.classList.toggle('hidden', info.count <= 1);
+
+  for (let floor = 1; floor <= info.count; floor++) {
+    const button = document.createElement('button');
+    button.className = 'floor-button squishy';
+    button.textContent = floor + 'F';
+    button.title = 'Go to floor ' + floor;
+    button.classList.toggle('selected', floor === info.current);
+    button.addEventListener('click', () => {
+      if (mode !== 'interior') return;
+      interior.setFloor(floor);
+      refreshFloorNavigation();
+      updateSleepButton();
+    });
+    floorButtonsEl.appendChild(button);
+  }
+
+  buildHintEl.textContent = info.count > 1
+    ? '🏠 Floor ' + info.current + ' of ' + info.count + ' · decorate each floor your way!'
+    : BUILD_HINT_DEFAULT;
+}
 function updateSleepButton() {
   const status = interior.getSleepStatus();
   sleepBtn.disabled = !status.nearBed;
@@ -580,7 +642,7 @@ document.getElementById('exitBtn').addEventListener('click', exitHouse);
 function enterHouse(door) {
   enteredDoor = door;
   if (door.cloud) leaveCloudForBuilding();
-  interior.enter(config, door.key);
+  interior.enter(config, door.key, { floors: door.floors || 1 });
   mode = 'interior';
   nearbyInteraction = null;
   enterPromptEl.classList.add('hidden');
@@ -593,6 +655,7 @@ function enterHouse(door) {
       ? `🏠 ${config.name}'s dream house`
       : `🏠 ${door.label || `${config.name}'s ${door.key} house`}`;
   buildHintEl.textContent = BUILD_HINT_DEFAULT;
+  refreshFloorNavigation();
   refreshTools();
   updateSleepButton();
 }
@@ -608,6 +671,7 @@ document.getElementById('inviteBtn').addEventListener('click', () => {
 function exitHouse() {
   if (mode !== 'interior') return;
   buildBarEl.classList.add('hidden');
+  floorNavEl.classList.add('hidden');
   document.body.classList.remove('building');
   if (enteredDoor?.cloud) {
     restoreCloudAfterBuilding(enteredDoor);
@@ -1142,7 +1206,7 @@ function tick() {
     if (parkPlay) {
       updateParkPlay(dt);
     } else {
-      const move = pendingHouseBuild ? { x: 0, z: 0 } : getMove();
+      const move = pendingHouseBuild ? { x: 0, z: 0 } : getActiveMove(playerRoot.position);
       moving = Math.hypot(move.x, move.z) > 0.05;
       if (moving) {
         playerRoot.position.x += move.x * PLAYER_SPEED * dt;
@@ -1150,9 +1214,6 @@ function tick() {
         resolveCollisions();
         desiredRotation = Math.atan2(move.x, move.z);
       }
-
-      const pointerHeading = getPointerHeading(playerRoot.position);
-      if (Number.isFinite(pointerHeading)) desiredRotation = pointerHeading;
 
       let delta = desiredRotation - currentRotation;
       while (delta > Math.PI) delta -= Math.PI * 2;
@@ -1203,16 +1264,16 @@ function tick() {
   camera.lookAt(lookTarget);
 
   if (mode === 'interior') {
-    interior.update(dt, t, getMove(), getPointerHeading(interior.getPlayerPos()));
+    interior.update(dt, t, getMove());
     interiorMagic.update(dt);
   } else if (mode === 'shop') {
-    shopInterior.update(dt, t, getMove(), getPointerHeading(shopInterior.getPlayerPos()));
+    shopInterior.update(dt, t, getActiveMove(shopInterior.getPlayerPos()));
   } else if (mode === 'venue') {
-    venueInterior.update(dt, t, getMove(), getPointerHeading(venueInterior.getPlayerPos()));
+    venueInterior.update(dt, t, getActiveMove(venueInterior.getPlayerPos()));
   } else if (mode === 'cloud') {
-    cloudland.update(dt, t, pendingHouseBuild ? { x: 0, z: 0 } : getMove(), getPointerHeading(cloudland.getPlayerPos()));
+    cloudland.update(dt, t, pendingHouseBuild ? { x: 0, z: 0 } : getActiveMove(cloudland.getPlayerPos()));
   } else if (mode === 'underwater') {
-    underwater.update(dt, t, getMove(), getPointerHeading(underwater.getPlayerPos()));
+    underwater.update(dt, t, getActiveMove(underwater.getPlayerPos()));
   } else if (mode !== 'sleeping') {
     animateMimimo(playerBody, t, dt, moving);
     updateClouds(dt, t);

@@ -83,6 +83,7 @@ export function makeLots(scene) {
     const door = {
       key: `dream${index}`,
       custom: true,
+      floors: THREE.MathUtils.clamp(Math.round(Number(home.floors) || 1), 1, 3),
       x: spec.x + Math.sin(angle) * reach,
       z: spec.z + Math.cos(angle) * reach,
     };

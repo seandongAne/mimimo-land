@@ -492,6 +492,37 @@ html, body {
   color: var(--ink);
   text-align: center;
 }
+#floorNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: #fff3c7;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+#floorButtons {
+  display: flex;
+  gap: 5px;
+}
+.floor-button {
+  min-width: 38px;
+  height: 32px;
+  padding: 0 8px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--cream);
+  font: 700 0.82rem "Fredoka", sans-serif;
+}
+.floor-button.selected {
+  color: #fff;
+  background: var(--lav);
+  box-shadow: 0 2px 0 var(--ink);
+  transform: translateY(-1px);
+}
 #toolRow {
   display: flex;
   flex-wrap: wrap;

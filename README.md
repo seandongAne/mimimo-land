@@ -18,8 +18,7 @@ Then open the printed URL (defaults to http://localhost:5173).
 
 | Action        | Desktop            | Touch                |
 | ------------- | ------------------ | -------------------- |
-| Explore       | WASD / arrow keys  | Drag the wheel       |
-| Face cursor   | Move the mouse     | Follows movement     |
+| Explore       | Hold mouse / WASD / arrows | Drag the wheel       |
 | Choose power  | Number keys 1–0     | Tap a power bubble   |
 | Use power ✨   | SPACE or M          | Tap the big power button |
 | Talk 👋        | H                   | Tap the 👋 button     |
@@ -54,14 +53,16 @@ be sipped and toys can be played with again and again.
     and a rainbow.
 - **A giant Cloudland town** — a much bigger cloud island with all eight animal
   houses, all five shops, the school, hospital and restaurant, plus nine lots
-  where mimimos can choose 1–3 floors, any Mimimo shape and any candy color
+  where mimimos can choose 1–3 separately decorated interior floors, any Mimimo
+  shape and any candy color
   for their own saved cloud homes.
 - **Rainbow Cloud Castle** — an enterable castle made from pink, light-blue,
   yellow and purple clouds. Twinkle and Starmane live nearby and answer when a
   mimimo talks to them.
 - **House interiors** — decorate with beds, sofas, chairs, tables, lamps,
-  plants, TVs, rugs, teddies and balloons. Rotate each item before placing it;
-  every house remembers its layout. Walk to a bed to sleep, then wake at dawn.
+  plants, TVs, rugs, teddies and balloons. Rotate each item before placing it.
+  Custom homes can have 1–3 interior floors, and every floor remembers its own
+  layout. Walk to a bed to sleep, then wake at dawn.
 - **A living sky** — time moves through dawn, day, dusk and midnight. The clock
   button jumps ahead when you want to see the next phase.
 - **Life & chatter** — friendly mimimos wander every district, wave, blow

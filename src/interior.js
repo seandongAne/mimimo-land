@@ -143,6 +143,8 @@ function buildRoom(scene) {
   const wallMat = toon('#ffe9d6');
   const w = ROOM.halfX * 2 + 2;
   const depth = ROOM.frontZ - ROOM.backZ + 2;
+  const planks = [];
+  const sideWalls = [];
 
   // wood floor
   const floor = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, depth), toon('#e9c79a'));
@@ -154,6 +156,7 @@ function buildRoom(scene) {
     const plank = new THREE.Mesh(new THREE.BoxGeometry(w, 0.42, 1.0), toon('#dcb888'));
     plank.position.set(0, -0.19, ROOM.backZ + 1 + i * 2);
     scene.add(plank);
+    planks.push(plank);
   }
 
   // back wall + side walls
@@ -164,6 +167,7 @@ function buildRoom(scene) {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(0.4, ROOM.wallH, depth), toon('#ffe0c8'));
     wall.position.set(side * (ROOM.halfX + 1), ROOM.wallH / 2, (ROOM.backZ + ROOM.frontZ) / 2);
     scene.add(wall);
+    sideWalls.push(wall);
   }
 
   // striped wallpaper trim
@@ -202,7 +206,7 @@ function buildRoom(scene) {
   floorHit.position.set(0, 0, (ROOM.backZ + ROOM.frontZ) / 2);
   scene.add(floorHit);
 
-  return floorHit;
+  return { floorHit, floor, planks, back, sideWalls, trim, sky };
 }
 
 /**
@@ -220,10 +224,38 @@ export function makeInterior() {
   lamp.shadow.mapSize.set(1024, 1024);
   scene.add(lamp);
 
-  const floorHit = buildRoom(scene);
+  const room = buildRoom(scene);
+  const { floorHit } = room;
+  const floorThemes = [
+    {
+      background: '#ffe8f4', floor: '#e9c79a', plank: '#dcb888',
+      back: '#ffe9d6', side: '#ffe0c8', trim: '#ff9ed2', sky: '#bfeaff',
+    },
+    {
+      background: '#e7f8ff', floor: '#cde7c1', plank: '#b9d9ae',
+      back: '#e1f4dc', side: '#d2edcf', trim: '#7ad0ff', sky: '#bfeaff',
+    },
+    {
+      background: '#eee7ff', floor: '#e6d2aa', plank: '#d8c094',
+      back: '#eadfff', side: '#ded2f8', trim: '#b79cff', sky: '#ffd9ef',
+    },
+  ];
+
+  function applyFloorTheme() {
+    const theme = floorThemes[currentFloor - 1] || floorThemes[0];
+    scene.background.set(theme.background);
+    room.floor.material.color.set(theme.floor);
+    for (const plank of room.planks) plank.material.color.set(theme.plank);
+    room.back.material.color.set(theme.back);
+    for (const wall of room.sideWalls) wall.material.color.set(theme.side);
+    room.trim.material.color.set(theme.trim);
+    room.sky.material.color.set(theme.sky);
+  }
 
   let player = null;
   let houseKey = 'home';
+  let floorCount = 1;
+  let currentFloor = 1;
   let tool = 'bed';
   let placementRotation = 0;
   let sleeping = false;
@@ -281,8 +313,10 @@ export function makeInterior() {
     }
   }
 
-  function saveKeyFor(key) { return `mimimo.house.${key}`; }
-
+  function saveKeyFor(key, floor = currentFloor) {
+    const base = 'mimimo.house.' + key;
+    return floor === 1 ? base : base + '.floor' + floor;
+  }
   function addItem(kind, x, z, ry, save = true) {
     const def = FURNITURE[kind];
     if (!def) return;
@@ -312,17 +346,39 @@ export function makeInterior() {
     for (const d of data) addItem(d.kind, d.x, d.z, d.ry, false);
   }
 
-  function enter(config, key) {
+  function resetPlayerForFloor() {
+    if (!player) return;
+    player.position.set(2, 0, 3);
+    player.rotation.set(0, Math.PI, 0);
+  }
+
+  function setFloor(nextFloor) {
+    const target = THREE.MathUtils.clamp(Math.round(Number(nextFloor) || 1), 1, floorCount);
+    if (target === currentFloor) return currentFloor;
+    currentFloor = target;
+    sleeping = false;
+    clearGuests();
+    loadItems();
+    resetPlayerForFloor();
+    applyFloorTheme();
+    return currentFloor;
+  }
+
+  function getFloorInfo() {
+    return { current: currentFloor, count: floorCount };
+  }
+  function enter(config, key, { floors = 1 } = {}) {
     houseKey = key || 'home';
+    floorCount = THREE.MathUtils.clamp(Math.round(Number(floors) || 1), 1, 3);
+    currentFloor = 1;
     if (player) disposeMimimo(player);
     player = buildMimimo(config);
-    player.position.set(2, 0, 3);
-    player.rotation.y = Math.PI;
-    player.rotation.z = 0;
+    resetPlayerForFloor();
     sleeping = false;
     scene.add(player);
     clearGuests();
     loadItems();
+    applyFloorTheme();
   }
 
   function setTool(kind) { if (FURNITURE[kind]) tool = kind; }
@@ -465,6 +521,8 @@ export function makeInterior() {
     clearAll,
     rotatePlacement,
     getPlacementRotation,
+    setFloor,
+    getFloorInfo,
     getSleepStatus,
     startSleep,
     wake,

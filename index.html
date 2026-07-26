@@ -67,7 +67,7 @@
       <div class="house-customizer-card">
         <h2 id="houseCustomizerTitle">&#127968; Design your dream house</h2>
 
-        <p class="step-label"><span class="step-num">1</span> How many floors?</p>
+        <p class="step-label"><span class="step-num">1</span> How many floors inside?</p>
         <div id="houseFloorRow" class="chip-row" aria-label="Number of house floors"></div>
 
         <p class="step-label"><span class="step-num">2</span> Pick any Mimimo shape</p>
@@ -86,6 +86,10 @@
     <!-- build-your-own-house bar (shown inside a house) -->
     <div id="buildBar" class="hidden">
       <p id="buildHint">🔨 Tap the floor to place — walk with WASD / the wheel</p>
+      <div id="floorNav" class="hidden" aria-label="House floors">
+        <span>&#129692; Go to floor</span>
+        <div id="floorButtons"></div>
+      </div>
       <div id="toolRow"></div>
       <div class="build-actions">
         <button id="rotateBtn" class="squishy" title="Rotate the next furniture (R)">↻ 0°</button>
