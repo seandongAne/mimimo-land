@@ -62,6 +62,27 @@
 
     <button id="enterPrompt" class="squishy hidden"></button>
 
+    <!-- dream-house customizer (shown before building on an empty lot) -->
+    <div id="houseCustomizer" class="hidden" role="dialog" aria-modal="true" aria-labelledby="houseCustomizerTitle">
+      <div class="house-customizer-card">
+        <h2 id="houseCustomizerTitle">&#127968; Design your dream house</h2>
+
+        <p class="step-label"><span class="step-num">1</span> How many floors?</p>
+        <div id="houseFloorRow" class="chip-row" aria-label="Number of house floors"></div>
+
+        <p class="step-label"><span class="step-num">2</span> Pick any Mimimo shape</p>
+        <div id="houseShapeRow" class="chip-row" aria-label="House shape"></div>
+
+        <p class="step-label"><span class="step-num">3</span> Paint your house</p>
+        <div id="houseColorRow" class="swatch-row" aria-label="House color"></div>
+
+        <p id="houseChoiceSummary" aria-live="polite"></p>
+        <div class="house-customizer-actions">
+          <button id="cancelHouseBtn" class="squishy">Not yet</button>
+          <button id="confirmHouseBtn" class="squishy">Build it! &#10024;</button>
+        </div>
+      </div>
+    </div>
     <!-- build-your-own-house bar (shown inside a house) -->
     <div id="buildBar" class="hidden">
       <p id="buildHint">🔨 Tap the floor to place — walk with WASD / the wheel</p>

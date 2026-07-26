@@ -383,7 +383,7 @@ export function makeInterior() {
   const PLAYER_SPEED = 4.2;
   let heading = Math.PI;
 
-  function update(dt, t, move) {
+  function update(dt, t, move, facingHeading = null) {
     if (!player || sleeping) return;
     const moving = Math.hypot(move.x, move.z) > 0.05;
     if (moving) {
@@ -393,6 +393,7 @@ export function makeInterior() {
       player.position.z = Math.max(ROOM.backZ + 0.6, Math.min(ROOM.frontZ - 0.4, player.position.z));
       heading = Math.atan2(move.x, move.z);
     }
+    if (Number.isFinite(facingHeading)) heading = facingHeading;
     let d = heading - player.rotation.y;
     while (d > Math.PI) d -= Math.PI * 2;
     while (d < -Math.PI) d += Math.PI * 2;

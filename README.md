@@ -19,6 +19,7 @@ Then open the printed URL (defaults to http://localhost:5173).
 | Action        | Desktop            | Touch                |
 | ------------- | ------------------ | -------------------- |
 | Explore       | WASD / arrow keys  | Drag the wheel       |
+| Face cursor   | Move the mouse     | Follows movement     |
 | Choose power  | Number keys 1–0     | Tap a power bubble   |
 | Use power ✨   | SPACE or M          | Tap the big power button |
 | Talk 👋        | H                   | Tap the 👋 button     |
@@ -53,7 +54,8 @@ be sipped and toys can be played with again and again.
     and a rainbow.
 - **A giant Cloudland town** — a much bigger cloud island with all eight animal
   houses, all five shops, the school, hospital and restaurant, plus nine lots
-  where mimimos can build and enter their own saved cloud homes.
+  where mimimos can choose 1–3 floors, any Mimimo shape and any candy color
+  for their own saved cloud homes.
 - **Rainbow Cloud Castle** — an enterable castle made from pink, light-blue,
   yellow and purple clouds. Twinkle and Starmane live nearby and answer when a
   mimimo talks to them.

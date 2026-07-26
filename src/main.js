@@ -291,9 +291,38 @@ document.getElementById('newBtn').addEventListener('click', () => {
 });
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
+const pointerNdc = new THREE.Vector2();
+const pointerRaycaster = new THREE.Raycaster();
+const pointerPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const pointerWorld = new THREE.Vector3();
+let mouseFacingActive = false;
+
+window.addEventListener('pointermove', (event) => {
+  if (isTouch || event.pointerType === 'touch') return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointerNdc.set(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  mouseFacingActive = true;
+});
+
+/** Translate the cursor into a heading on the active scene's horizontal plane. */
+function getPointerHeading(position) {
+  if (!mouseFacingActive || isTouch || pendingHouseBuild) return null;
+  pointerRaycaster.setFromCamera(pointerNdc, camera);
+  pointerPlane.constant = -position.y;
+  if (pointerRaycaster.ray.intersectPlane(pointerPlane, pointerWorld)) {
+    const dx = pointerWorld.x - position.x;
+    const dz = pointerWorld.z - position.z;
+    if (Math.hypot(dx, dz) > 0.08) return Math.atan2(dx, dz);
+  }
+  const { x, z } = pointerRaycaster.ray.direction;
+  return Math.hypot(x, z) > 0.001 ? Math.atan2(x, z) : null;
+}
 hintEl.textContent = isTouch
   ? 'Drag the wheel · choose a power · tap it to cast'
-  : 'WASD / arrows · E interacts · number keys choose powers · SPACE casts';
+  : 'WASD / arrows move · point the mouse to look · E interacts · SPACE casts';
 
 function refreshTimeButton() {
   const phase = world.getPhase();
@@ -412,6 +441,102 @@ let nearbyInteraction = null;
 let enteredDoor = null;
 let enteredShop = null;
 let parkPlay = null; // {type: 'swing' | 'slide', t}
+
+// Dream-house choices are independent from the player's own species and color.
+const houseCustomizerEl = document.getElementById('houseCustomizer');
+const houseFloorRow = document.getElementById('houseFloorRow');
+const houseShapeRow = document.getElementById('houseShapeRow');
+const houseColorRow = document.getElementById('houseColorRow');
+const houseChoiceSummary = document.getElementById('houseChoiceSummary');
+const houseDraft = { species: config.species, color: config.color, floors: 1 };
+let pendingHouseBuild = null;
+
+for (let floors = 1; floors <= 3; floors++) {
+  const button = document.createElement('button');
+  button.className = 'chip squishy';
+  button.dataset.floors = String(floors);
+  button.textContent = floors === 1 ? '1 floor' : floors + ' floors';
+  button.addEventListener('click', () => {
+    houseDraft.floors = floors;
+    refreshHouseCustomizer();
+  });
+  houseFloorRow.appendChild(button);
+}
+
+for (const [key, spec] of Object.entries(SPECIES)) {
+  const button = document.createElement('button');
+  button.className = 'chip squishy';
+  button.dataset.species = key;
+  button.textContent = spec.emoji + ' ' + spec.label;
+  button.addEventListener('click', () => {
+    houseDraft.species = key;
+    refreshHouseCustomizer();
+  });
+  houseShapeRow.appendChild(button);
+}
+
+for (const color of COLORS) {
+  const swatch = document.createElement('button');
+  swatch.className = 'swatch squishy';
+  swatch.dataset.color = color;
+  swatch.style.background = color;
+  swatch.setAttribute('aria-label', 'House color ' + color);
+  swatch.addEventListener('click', () => {
+    houseDraft.color = color;
+    refreshHouseCustomizer();
+  });
+  houseColorRow.appendChild(swatch);
+}
+
+function refreshHouseCustomizer() {
+  for (const button of houseFloorRow.children) {
+    button.classList.toggle('selected', Number(button.dataset.floors) === houseDraft.floors);
+  }
+  for (const button of houseShapeRow.children) {
+    button.classList.toggle('selected', button.dataset.species === houseDraft.species);
+  }
+  for (const swatch of houseColorRow.children) {
+    swatch.classList.toggle('selected', swatch.dataset.color === houseDraft.color);
+  }
+  const floorLabel = houseDraft.floors === 1 ? '1 floor' : houseDraft.floors + ' floors';
+  houseChoiceSummary.textContent =
+    floorLabel + ' · ' + SPECIES[houseDraft.species].label + ' shape · ' + houseDraft.color;
+}
+
+function openHouseCustomizer(lot, cloud = false) {
+  pendingHouseBuild = { lot, cloud };
+  houseDraft.species = config.species;
+  houseDraft.color = config.color;
+  houseDraft.floors = 1;
+  refreshHouseCustomizer();
+  houseCustomizerEl.classList.remove('hidden');
+  enterPromptEl.classList.add('hidden');
+  document.body.classList.add('house-planning');
+}
+
+function closeHouseCustomizer() {
+  pendingHouseBuild = null;
+  houseCustomizerEl.classList.add('hidden');
+  document.body.classList.remove('house-planning');
+}
+
+function confirmHouseBuild() {
+  if (!pendingHouseBuild) return;
+  const request = pendingHouseBuild;
+  const choice = { ...houseDraft, name: config.name };
+  closeHouseCustomizer();
+  if (request.cloud) buildCloudHouse(request.lot, choice);
+  else buildDreamHouse(request.lot, choice);
+}
+
+document.getElementById('cancelHouseBtn').addEventListener('click', closeHouseCustomizer);
+document.getElementById('confirmHouseBtn').addEventListener('click', confirmHouseBuild);
+houseCustomizerEl.addEventListener('pointerdown', (event) => {
+  if (event.target === houseCustomizerEl) closeHouseCustomizer();
+});
+window.addEventListener('keydown', (event) => {
+  if (event.code === 'Escape' && pendingHouseBuild) closeHouseCustomizer();
+});
 
 for (const { key, emoji } of FURNITURE_KINDS) {
   const button = document.createElement('button');
@@ -782,8 +907,8 @@ function updateParkPlay(dt) {
   }
 }
 
-function buildDreamHouse(lot) {
-  const door = lots.buildAt(lot.index, config);
+function buildDreamHouse(lot, houseConfig = config) {
+  const door = lots.buildAt(lot.index, houseConfig);
   if (!door) return;
   resolveCollisions(); // the new house pushes the builder gently off the lot
   magic.cast(new THREE.Vector3(lot.x, 0, lot.z), 'hearts');
@@ -792,8 +917,8 @@ function buildDreamHouse(lot) {
   nearbyInteraction = null;
 }
 
-function buildCloudHouse(lot) {
-  const door = cloudland.buildAt(lot.index, config);
+function buildCloudHouse(lot, houseConfig = config) {
+  const door = cloudland.buildAt(lot.index, houseConfig);
   if (!door) return;
   nearbyInteraction = null;
   enterPromptEl.classList.add('hidden');
@@ -828,6 +953,11 @@ document.getElementById('diveExitBtn').addEventListener('click', exitUnderwater)
 
 // ---------------------------------------------------------------- nearby interactions
 function updateInteractionPrompt() {
+  if (pendingHouseBuild) {
+    nearbyInteraction = null;
+    enterPromptEl.classList.add('hidden');
+    return;
+  }
   if (parkPlay) {
     nearbyInteraction = null;
     enterPromptEl.classList.add('hidden');
@@ -923,6 +1053,7 @@ function updateInteractionPrompt() {
 }
 
 function activateInteraction() {
+  if (pendingHouseBuild) return;
   if (mode === 'interior') return exitHouse();
   if (mode === 'shop') return exitShop();
   if (mode === 'venue') return exitVenue();
@@ -931,7 +1062,7 @@ function activateInteraction() {
     if (nearbyInteraction.type === 'house') enterHouse(nearbyInteraction.door);
     else if (nearbyInteraction.type === 'shop') enterShop(nearbyInteraction.door);
     else if (nearbyInteraction.type === 'venue') enterVenue(nearbyInteraction.door);
-    else if (nearbyInteraction.type === 'cloud-lot') buildCloudHouse(nearbyInteraction.lot);
+    else if (nearbyInteraction.type === 'cloud-lot') openHouseCustomizer(nearbyInteraction.lot, true);
     return;
   }
   if (mode === 'underwater') return exitUnderwater();
@@ -945,7 +1076,7 @@ function activateInteraction() {
   else if (nearbyInteraction.type === 'swingplay') startParkPlay('swing');
   else if (nearbyInteraction.type === 'slideplay') startParkPlay('slide');
   else if (nearbyInteraction.type === 'cloud') enterCloud();
-  else if (nearbyInteraction.type === 'lot') buildDreamHouse(nearbyInteraction.lot);
+  else if (nearbyInteraction.type === 'lot') openHouseCustomizer(nearbyInteraction.lot);
 }
 
 enterPromptEl.addEventListener('click', activateInteraction);
@@ -1011,7 +1142,7 @@ function tick() {
     if (parkPlay) {
       updateParkPlay(dt);
     } else {
-      const move = getMove();
+      const move = pendingHouseBuild ? { x: 0, z: 0 } : getMove();
       moving = Math.hypot(move.x, move.z) > 0.05;
       if (moving) {
         playerRoot.position.x += move.x * PLAYER_SPEED * dt;
@@ -1019,6 +1150,9 @@ function tick() {
         resolveCollisions();
         desiredRotation = Math.atan2(move.x, move.z);
       }
+
+      const pointerHeading = getPointerHeading(playerRoot.position);
+      if (Number.isFinite(pointerHeading)) desiredRotation = pointerHeading;
 
       let delta = desiredRotation - currentRotation;
       while (delta > Math.PI) delta -= Math.PI * 2;
@@ -1069,16 +1203,16 @@ function tick() {
   camera.lookAt(lookTarget);
 
   if (mode === 'interior') {
-    interior.update(dt, t, getMove());
+    interior.update(dt, t, getMove(), getPointerHeading(interior.getPlayerPos()));
     interiorMagic.update(dt);
   } else if (mode === 'shop') {
-    shopInterior.update(dt, t, getMove());
+    shopInterior.update(dt, t, getMove(), getPointerHeading(shopInterior.getPlayerPos()));
   } else if (mode === 'venue') {
-    venueInterior.update(dt, t, getMove());
+    venueInterior.update(dt, t, getMove(), getPointerHeading(venueInterior.getPlayerPos()));
   } else if (mode === 'cloud') {
-    cloudland.update(dt, t, getMove());
+    cloudland.update(dt, t, pendingHouseBuild ? { x: 0, z: 0 } : getMove(), getPointerHeading(cloudland.getPlayerPos()));
   } else if (mode === 'underwater') {
-    underwater.update(dt, t, getMove());
+    underwater.update(dt, t, getMove(), getPointerHeading(underwater.getPlayerPos()));
   } else if (mode !== 'sleeping') {
     animateMimimo(playerBody, t, dt, moving);
     updateClouds(dt, t);

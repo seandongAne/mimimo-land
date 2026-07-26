@@ -535,7 +535,7 @@ export function makeVenueInterior() {
     if (player) spawnBurst([emoji, '✨', '🎉'], player.position, 14);
   }
 
-  function update(dt, t, move) {
+  function update(dt, t, move, facingHeading = null) {
     if (player) {
       const moving = Math.hypot(move.x, move.z) > 0.05;
       if (moving) {
@@ -545,6 +545,7 @@ export function makeVenueInterior() {
         player.position.z = THREE.MathUtils.clamp(player.position.z, ROOM.backZ + 2.3, ROOM.frontZ - 0.4);
         heading = Math.atan2(move.x, move.z);
       }
+      if (Number.isFinite(facingHeading)) heading = facingHeading;
       let delta = heading - player.rotation.y;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;

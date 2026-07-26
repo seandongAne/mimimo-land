@@ -66,7 +66,7 @@ export function makeLots(scene) {
   function raiseHouse(index, home) {
     const spec = LOTS[index];
     const builder = HOUSE_BUILDERS[home.species] || HOUSE_BUILDERS.bunny;
-    const house = builder(home.color);
+    const house = builder(home.color, home.floors);
     house.position.set(spec.x, 0, spec.z);
     const angle = Math.atan2(0 - spec.x, 6 - spec.z); // face the spawn point
     house.rotation.y = angle;
@@ -116,7 +116,7 @@ export function makeLots(scene) {
   /** Build the player's house on a lot. Returns its door (or null). */
   function buildAt(index, config) {
     if (saved[index]) return null;
-    saved[index] = { species: config.species, color: config.color };
+    saved[index] = { species: config.species, color: config.color, floors: config.floors || 1 };
     writeSaved(saved);
     return raiseHouse(index, saved[index]);
   }

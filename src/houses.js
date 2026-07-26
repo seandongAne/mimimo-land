@@ -28,6 +28,7 @@ function eyeWindow(radius = 0.55) {
 
 function door(color, width = 0.75) {
   const group = new THREE.Group();
+  group.userData.houseDoor = true;
   const slab = new THREE.Mesh(new THREE.CapsuleGeometry(width, 0.9, 6, 12), toon(color));
   slab.scale.z = 0.3;
   group.add(slab);
@@ -170,12 +171,14 @@ function froggyHouse(color = '#8ee08e') {
   }
 
   const mouth = new THREE.Mesh(new THREE.CapsuleGeometry(0.85, 1.7, 6, 12), toon(darken(color, 0.45)));
+  mouth.userData.houseDoor = true;
   mouth.rotation.z = Math.PI / 2;
   mouth.scale.set(0.8, 1, 0.3);
   mouth.position.set(0, 1.15, 3.3);
   house.add(mouth);
 
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.1, 20), toon('#5fcf9a'));
+  pad.userData.keepGround = true;
   pad.position.set(0, 0.05, 5.2);
   pad.receiveShadow = true;
   house.add(pad);
@@ -414,25 +417,198 @@ function piggyHouse(color = '#ffc2d4') {
   return house;
 }
 
+/** A shared round shell for Mimimo shapes that do not appear in the village. */
+function roundHouse(color, { radius = 3.7, bodyY = 3.15, doorZ = 3.0, scaleY = 1 } = {}) {
+  const house = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 18), toon(color));
+  body.position.y = bodyY;
+  body.scale.y = scaleY;
+  house.add(body);
+
+  for (const side of [-1, 1]) {
+    const eye = eyeWindow(0.54);
+    eye.position.set(side * 1.35, bodyY + 1.15, radius * 0.9);
+    eye.rotation.x = -0.1;
+    house.add(eye);
+  }
+
+  const frontDoor = door(darken(color, 0.32), 0.78);
+  frontDoor.position.set(0, 1.15, doorZ);
+  house.add(frontDoor);
+  return house;
+}
+
+function blobHouse(color = '#8ee08e') {
+  const house = roundHouse(color, { bodyY: 2.8, doorZ: 3.05, scaleY: 0.82 });
+  for (let i = -2; i <= 2; i++) {
+    const bump = new THREE.Mesh(new THREE.SphereGeometry(0.78, 14, 10), toon(lighten(color, 0.16)));
+    bump.position.set(i * 1.15, 5.65 + (i % 2 ? 0.18 : 0), -0.1);
+    house.add(bump);
+  }
+  for (const side of [-1, 1]) {
+    const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.48, 12, 10), toon('#ffa8c5'));
+    cheek.position.set(side * 2.55, 3.1, 3.0);
+    cheek.scale.set(1, 0.65, 0.45);
+    house.add(cheek);
+  }
+  return house;
+}
+
+function squidHouse(color = '#b79cff') {
+  const house = roundHouse(color, { radius: 3.55, bodyY: 3.5, doorZ: 2.95, scaleY: 1.08 });
+  for (let i = -2; i <= 2; i++) {
+    const tentacle = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 1.3, 6, 10), toon(darken(color, 0.12)));
+    tentacle.position.set(i * 1.2, 0.65, i % 2 ? -0.55 : 0.15);
+    tentacle.rotation.z = i * 0.09;
+    house.add(tentacle);
+  }
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(1.15, 2.0, 12), toon(lighten(color, 0.18)));
+  crown.position.y = 7.7;
+  house.add(crown);
+  return house;
+}
+
+function fairyHouse(color = '#c98cff') {
+  const house = roundHouse(color, { bodyY: 3.1, doorZ: 3.0 });
+  for (const side of [-1, 1]) {
+    for (const y of [2.8, 5.0]) {
+      const wing = new THREE.Mesh(new THREE.SphereGeometry(1.55, 16, 12), toon(side > 0 ? '#dff8ff' : '#fff0fb'));
+      wing.position.set(side * 3.75, y, -0.55);
+      wing.scale.set(0.38, 1, 0.72);
+      wing.rotation.z = side * (y > 4 ? -0.42 : 0.42);
+      house.add(wing);
+    }
+    const feeler = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 1.15, 5, 8), toon(darken(color, 0.22)));
+    feeler.position.set(side * 0.75, 7.2, 0);
+    feeler.rotation.z = side * -0.42;
+    house.add(feeler);
+    const sparkle = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), toon('#ffe066'));
+    sparkle.position.set(side * 1.02, 7.85, 0);
+    house.add(sparkle);
+  }
+  return house;
+}
+
+function dragonHouse(color = '#8ee08e') {
+  const house = roundHouse(color, { bodyY: 3.2, doorZ: 3.0 });
+  for (const side of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.48, 1.65, 10), toon('#fff2c9'));
+    horn.position.set(side * 1.65, 7.1, 0);
+    horn.rotation.z = side * -0.25;
+    house.add(horn);
+    const wing = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.2, 3), toon(darken(color, 0.15)));
+    wing.position.set(side * 3.8, 3.5, -0.7);
+    wing.rotation.z = side * -Math.PI / 2;
+    wing.scale.z = 0.35;
+    house.add(wing);
+  }
+  for (let i = -1; i <= 1; i++) {
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.1, 8), toon(lighten(color, 0.2)));
+    spike.position.set(i * 0.8, 7.25 - Math.abs(i) * 0.25, -0.4);
+    house.add(spike);
+  }
+  return house;
+}
+
+function unicornHouse(color = '#fdf3e7') {
+  const house = roundHouse(color, { bodyY: 3.15, doorZ: 3.0 });
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.65, 16), toon('#ffe066'));
+  horn.position.set(0, 8.0, 0.25);
+  house.add(horn);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.25, 4), toon(color));
+    ear.position.set(side * 1.65, 6.9, 0.15);
+    ear.rotation.y = Math.PI / 4;
+    ear.rotation.z = side * -0.2;
+    house.add(ear);
+  }
+  const maneColors = ['#ff8fc7', '#ffe066', '#7ad0ff', '#b79cff'];
+  maneColors.forEach((maneColor, index) => {
+    const curl = new THREE.Mesh(new THREE.SphereGeometry(0.58, 12, 10), toon(maneColor));
+    curl.position.set(-2.75 + index * 0.25, 5.75 - index * 0.85, -0.2);
+    house.add(curl);
+  });
+  return house;
+}
+
+function phoenixHouse(color = '#ff7043') {
+  const house = roundHouse(color, { bodyY: 3.1, doorZ: 3.0 });
+  const flameColors = ['#ff7043', '#ffb46b', '#ffe066'];
+  for (let i = -1; i <= 1; i++) {
+    const plume = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.25, 10), toon(flameColors[i + 1]));
+    plume.position.set(i * 0.65, 7.2 + (i === 0 ? 0.65 : 0), 0);
+    plume.rotation.z = i * -0.3;
+    house.add(plume);
+  }
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.ConeGeometry(1.55, 3.6, 3), toon(side > 0 ? '#ffb46b' : '#ff8f8f'));
+    wing.position.set(side * 3.75, 3.2, -0.45);
+    wing.rotation.z = side * -Math.PI / 2;
+    wing.scale.z = 0.4;
+    house.add(wing);
+    const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 2.6, 6, 10), toon(flameColors[side > 0 ? 1 : 2]));
+    tail.position.set(side * 0.8, 1.2, -3.4);
+    tail.rotation.x = -0.55;
+    house.add(tail);
+  }
+  return house;
+}
+
+/** Stack rounded stories below the recognizable Mimimo-shaped top floor. */
+function addHouseFloors(house, color, requestedFloors = 1) {
+  const floors = THREE.MathUtils.clamp(Math.round(Number(requestedFloors) || 1), 1, 3);
+  house.userData.floors = floors;
+  if (floors === 1) return house;
+
+  const storyHeight = 3.7;
+  const lift = (floors - 1) * storyHeight;
+  for (const child of house.children) {
+    if (!child.userData.houseDoor && !child.userData.keepGround) child.position.y += lift;
+  }
+
+  for (let level = 0; level < floors - 1; level++) {
+    const centerY = storyHeight / 2 + level * storyHeight;
+    const story = new THREE.Group();
+    const wall = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.55, 3.72, storyHeight, 24),
+      toon(level % 2 ? lighten(color, 0.1) : color)
+    );
+    wall.position.y = centerY;
+    story.add(wall);
+
+    const band = new THREE.Mesh(new THREE.TorusGeometry(3.58, 0.13, 8, 28), toon(darken(color, 0.16)));
+    band.position.y = centerY + storyHeight / 2 - 0.08;
+    band.rotation.x = Math.PI / 2;
+    story.add(band);
+
+    for (const side of [-1, 1]) {
+      const window = eyeWindow(0.42);
+      window.position.set(side * 1.35, centerY + 0.45, 3.62);
+      story.add(window);
+    }
+    house.add(story);
+  }
+  return house;
+}
 /**
  * All the house styles by species, so empty lots can raise a house that
- * matches the player. Species without their own style borrow a cousin's.
+ * can use any Mimimo silhouette, color, and supported floor count.
  */
 export const HOUSE_BUILDERS = {
-  bunny: bunnyHouse,
-  kitty: kittyHouse,
-  froggy: froggyHouse,
-  puppy: puppyHouse,
-  bear: bearHouse,
-  ducky: duckyHouse,
-  foxy: foxyHouse,
-  piggy: piggyHouse,
-  blob: froggyHouse,
-  squid: froggyHouse,
-  fairy: bunnyHouse,
-  dragon: foxyHouse,
-  unicorn: bunnyHouse,
-  phoenix: duckyHouse,
+  bunny: (color, floors) => addHouseFloors(bunnyHouse(color), color, floors),
+  kitty: (color, floors) => addHouseFloors(kittyHouse(color), color, floors),
+  froggy: (color, floors) => addHouseFloors(froggyHouse(color), color, floors),
+  puppy: (color, floors) => addHouseFloors(puppyHouse(color), color, floors),
+  bear: (color, floors) => addHouseFloors(bearHouse(color), color, floors),
+  ducky: (color, floors) => addHouseFloors(duckyHouse(color), color, floors),
+  foxy: (color, floors) => addHouseFloors(foxyHouse(color), color, floors),
+  piggy: (color, floors) => addHouseFloors(piggyHouse(color), color, floors),
+  blob: (color, floors) => addHouseFloors(blobHouse(color), color, floors),
+  squid: (color, floors) => addHouseFloors(squidHouse(color), color, floors),
+  fairy: (color, floors) => addHouseFloors(fairyHouse(color), color, floors),
+  dragon: (color, floors) => addHouseFloors(dragonHouse(color), color, floors),
+  unicorn: (color, floors) => addHouseFloors(unicornHouse(color), color, floors),
+  phoenix: (color, floors) => addHouseFloors(phoenixHouse(color), color, floors),
 };
 
 /**
