@@ -19,6 +19,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_MULTIPLAYER_URL: ${{ vars.VITE_MULTIPLAYER_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

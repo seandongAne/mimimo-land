@@ -17,12 +17,22 @@ import { makeVenueInterior } from './venues.js';
 import { Magic, POWERS } from './magic.js';
 import { initInput, getMove } from './input.js';
 import { colliders, toon } from './utils.js';
+import { createMultiplayerClient } from './multiplayer.js';
+import { createMultiplayerUI } from './multiplayer-ui.js';
+import { createRemotePlayers } from './remote-players.js';
 
 const SPAWN = new THREE.Vector3(0, 0, 6);
 const PLAYER_SPEED = 5.2;
 const SPIN_DURATION = 0.5;
 const SAVE_KEY = 'mimimo.save.v1';
 const DEFAULT_POWERS = ['blossom', 'rainbow'];
+const MULTIPLAYER_PHRASES = Object.freeze({
+  hello: 'Hi!',
+  'lets-play': "Let's play!",
+  'follow-me': 'Follow me!',
+  'great-job': 'Great job!',
+});
+const TERMINAL_SESSION_ERRORS = new Set(['CONNECTION_REPLACED', 'SESSION_NOT_FOUND']);
 
 // ---------------------------------------------------------------- setup
 const renderer = new THREE.WebGLRenderer({
@@ -55,6 +65,10 @@ const underwater = makeUnderwater();
 const shopInterior = makeShopInterior();
 const venueInterior = makeVenueInterior();
 const cloudland = makeCloudland();
+const shopMagic = new Magic(shopInterior.scene);
+const venueMagic = new Magic(venueInterior.scene);
+const cloudMagic = new Magic(cloudland.scene);
+const underwaterMagic = new Magic(underwater.scene);
 
 // ---------------------------------------------------------------- player
 function normalisePowers(value) {
@@ -85,6 +99,7 @@ function loadConfig() {
 }
 
 const config = loadConfig();
+let multiplayer = null;
 
 function saveConfig() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(config));
@@ -119,6 +134,7 @@ function rebuildPlayer() {
   playerRoot.add(playerBody);
   syncPedestal();
   syncFlightButton();
+  multiplayer?.updateProfile();
 }
 
 // ---------------------------------------------------------------- UI + creator
@@ -259,6 +275,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
   config.powers = normalisePowers(config.powers);
   nameInput.value = config.name;
   saveConfig();
+  multiplayer?.updateProfile();
 
   mode = 'play';
   syncPedestal();
@@ -374,15 +391,23 @@ syncPedestal();
 
 // ---------------------------------------------------------------- magic + friends
 function castMagic() {
-  if (mode !== 'play' || magicCooldown > 0) return;
+  const locationId = getMultiplayerLocationId();
+  const sceneMagic = getMagicForLocation(locationId);
+  const playerPosition = getMultiplayerPlayerPosition();
+  const canCast = ['play', 'interior', 'shop', 'venue', 'cloud', 'underwater'].includes(mode);
+  if (!canCast || !sceneMagic || !playerPosition || magicCooldown > 0) return;
   magicCooldown = 0.35;
   spinTime = 0;
-  const castPosition = playerRoot.position.clone();
-  magic.cast(castPosition, activePower);
+  const castPosition = playerPosition.clone();
+  sceneMagic.cast(castPosition, activePower);
+  multiplayer?.sendAction('magic', locationId, {
+    power: activePower,
+    position: { x: castPosition.x, y: castPosition.y, z: castPosition.z },
+  });
 
-  if (activePower === 'levitation') {
+  if (mode === 'play' && activePower === 'levitation') {
     levitationTime = 4;
-  } else if (activePower === 'teleport') {
+  } else if (mode === 'play' && activePower === 'teleport') {
     playerRoot.position.x += Math.sin(currentRotation) * 7;
     playerRoot.position.z += Math.cos(currentRotation) * 7;
     resolveCollisions();
@@ -395,6 +420,8 @@ const friends = makeFriends(scene, playerRoot);
 function sayHi() {
   if (mode === 'play') friends.greet();
   else if (mode === 'cloud') cloudland.greet();
+  else return;
+  multiplayer?.sendAction('wave', getMultiplayerLocationId(), {});
 }
 
 function syncFlightButton() {
@@ -1217,6 +1244,158 @@ initInput({
 magicBtn.addEventListener('click', castMagic);
 document.getElementById('greetBtn').addEventListener('click', sayHi);
 
+// ---------------------------------------------------------------- multiplayer
+function getMultiplayerLocationId() {
+  if (mode === 'cloud') return 'cloudland';
+  if (mode === 'underwater') return 'underwater';
+  if (mode === 'shop' && enteredShop?.key) return `shop:${enteredShop.key}`;
+  if (mode === 'venue' && enteredVenue?.key) return `venue:${enteredVenue.key}`;
+  if (mode === 'interior' || mode === 'sleeping') return interior.getFurnitureLocationId();
+  return 'world';
+}
+
+function getMultiplayerScene(locationId) {
+  if (locationId === 'cloudland') return cloudland.scene;
+  if (locationId === 'underwater') return underwater.scene;
+  if (locationId.startsWith('shop:')) return shopInterior.scene;
+  if (locationId.startsWith('venue:')) return venueInterior.scene;
+  if (locationId.startsWith('house:')) return interior.scene;
+  return scene;
+}
+
+function getMagicForLocation(locationId) {
+  if (locationId === 'cloudland') return cloudMagic;
+  if (locationId === 'underwater') return underwaterMagic;
+  if (locationId.startsWith('shop:')) return shopMagic;
+  if (locationId.startsWith('venue:')) return venueMagic;
+  if (locationId.startsWith('house:')) return interiorMagic;
+  if (locationId === 'world') return magic;
+  return null;
+}
+
+function getMultiplayerPlayerPosition() {
+  if (mode === 'cloud') return cloudland.getPlayerPos();
+  if (mode === 'underwater') return underwater.getPlayerPos();
+  if (mode === 'shop') return shopInterior.getPlayerPos();
+  if (mode === 'venue') return venueInterior.getPlayerPos();
+  if (mode === 'interior' || mode === 'sleeping') return interior.getPlayerPos();
+  return playerRoot.position;
+}
+
+const multiplayerPoseTracker = {
+  locationId: '',
+  position: new THREE.Vector3(),
+  rotation: 0,
+};
+
+function sampleMultiplayerPose() {
+  const locationId = getMultiplayerLocationId();
+  const position = getMultiplayerPlayerPosition();
+  const sameLocation = multiplayerPoseTracker.locationId === locationId;
+  const dx = sameLocation ? position.x - multiplayerPoseTracker.position.x : 0;
+  const dy = sameLocation ? position.y - multiplayerPoseTracker.position.y : 0;
+  const dz = sameLocation ? position.z - multiplayerPoseTracker.position.z : 0;
+  const horizontalDistance = Math.hypot(dx, dz);
+  const moving = sameLocation && Math.hypot(dx, dy, dz) > 0.002;
+
+  let rotation = multiplayerPoseTracker.rotation;
+  if (locationId === 'world') rotation = playerRoot.rotation.y;
+  else if (!sameLocation) rotation = Math.PI;
+  else if (horizontalDistance > 0.001) rotation = Math.atan2(dx, dz);
+
+  multiplayerPoseTracker.locationId = locationId;
+  multiplayerPoseTracker.position.copy(position);
+  multiplayerPoseTracker.rotation = rotation;
+
+  return {
+    locationId,
+    x: position.x,
+    y: position.y,
+    z: position.z,
+    rotation,
+    moving,
+    flying: mode === 'play' && flightEnabled,
+  };
+}
+
+multiplayer = createMultiplayerClient({
+  getProfile: () => ({
+    name: config.name,
+    species: config.species,
+    color: config.color,
+    shape: config.shape,
+  }),
+});
+
+const remotePlayers = createRemotePlayers({
+  localPlayerId: multiplayer.state().playerId,
+  localLocationId: getMultiplayerLocationId(),
+  resolveContext: (locationId) => ({ container: getMultiplayerScene(locationId) }),
+  onPhrase: ({ payload, showPhrase }) => {
+    const phrase = MULTIPLAYER_PHRASES[payload.phraseId];
+    if (phrase) showPhrase(phrase);
+  },
+  onMagic: ({ locationId, payload }) => {
+    const sceneMagic = getMagicForLocation(locationId);
+    const position = payload?.position;
+    if (!sceneMagic || !POWERS[payload?.power] || !position) return;
+    sceneMagic.cast(new THREE.Vector3(position.x, position.y, position.z), payload.power);
+  },
+});
+
+const multiplayerFurnitureAdapter = {
+  requestAdd: ({ locationId, item }) => multiplayer.requestFurnitureAdd(locationId, item),
+  requestRemove: ({ locationId, itemId }) => multiplayer.requestFurnitureRemove(locationId, itemId),
+  requestClear: ({ locationId }) => multiplayer.requestFurnitureClear(locationId),
+};
+
+function clearMultiplayerSession() {
+  remotePlayers.clear();
+  interior.setFurnitureSyncAdapter(null);
+}
+
+multiplayer.on('snapshot', ({ players, furnitureByLocation }) => {
+  remotePlayers.replacePlayers(players);
+  interior.setFurnitureSyncAdapter(multiplayerFurnitureAdapter);
+  for (const [locationId, items] of furnitureByLocation || []) {
+    interior.loadFurnitureSnapshot(locationId, items);
+  }
+});
+multiplayer.on('player:joined', (player) => remotePlayers.upsertPlayer(player));
+multiplayer.on('player:updated', ({ player }) => remotePlayers.upsertPlayer(player));
+multiplayer.on('player:left', ({ playerId }) => remotePlayers.removePlayer(playerId));
+multiplayer.on('player:action', (event) => remotePlayers.handleAction(event));
+multiplayer.on('furniture:added', ({ locationId, item }) => {
+  interior.applyFurnitureAdded(locationId, item);
+});
+multiplayer.on('furniture:removed', ({ locationId, itemId }) => {
+  interior.applyFurnitureRemoved(locationId, itemId);
+});
+multiplayer.on('furniture:cleared', ({ locationId }) => {
+  interior.applyFurnitureCleared(locationId);
+});
+multiplayer.on('left', clearMultiplayerSession);
+multiplayer.on('error', ({ code }) => {
+  if (TERMINAL_SESSION_ERRORS.has(code)) clearMultiplayerSession();
+});
+
+const multiplayerUI = createMultiplayerUI({
+  client: multiplayer,
+  getLocationId: getMultiplayerLocationId,
+  onLeave: clearMultiplayerSession,
+});
+
+function updateMultiplayer(dt, elapsedTime) {
+  const pose = sampleMultiplayerPose();
+  if (remotePlayers.localLocationId !== pose.locationId) {
+    remotePlayers.setLocalLocation(pose.locationId, {
+      container: getMultiplayerScene(pose.locationId),
+    });
+  }
+  multiplayer.publishPose(pose);
+  remotePlayers.update(dt, elapsedTime);
+}
+
 // ---------------------------------------------------------------- loop
 const clock = new THREE.Clock();
 const lookTarget = new THREE.Vector3(SPAWN.x, 1.3, SPAWN.z);
@@ -1331,14 +1510,20 @@ function tick() {
   if (mode === 'interior') {
     interior.update(dt, t, getMove());
     interiorMagic.update(dt);
+  } else if (mode === 'sleeping') {
+    interiorMagic.update(dt);
   } else if (mode === 'shop') {
     shopInterior.update(dt, t, getMove());
+    shopMagic.update(dt);
   } else if (mode === 'venue') {
     venueInterior.update(dt, t, getMove());
+    venueMagic.update(dt);
   } else if (mode === 'cloud') {
     cloudland.update(dt, t, pendingHouseBuild ? { x: 0, z: 0 } : getMove());
+    cloudMagic.update(dt);
   } else if (mode === 'underwater') {
     underwater.update(dt, t, getMove());
+    underwaterMagic.update(dt);
   } else if (mode !== 'sleeping') {
     animateMimimo(playerBody, t, dt, moving);
     updateClouds(dt, t);
@@ -1346,6 +1531,8 @@ function tick() {
     friends.update(dt, t);
     magic.update(dt);
   }
+
+  updateMultiplayer(dt, t);
 
   let activeScene = scene;
   if (mode === 'interior' || mode === 'sleeping') activeScene = interior.scene;
@@ -1410,4 +1597,10 @@ window.__debug = {
   renderInventory,
   goToSleep,
   wakeUp,
+  multiplayer,
+  multiplayerUI,
+  remotePlayers,
+  getMultiplayerLocationId,
 };
+
+multiplayer.restoreIfNeeded();
