@@ -4,6 +4,14 @@ import { buildMimimo, animateMimimo, disposeMimimo, randomName, SPECIES, SHAPES,
 
 const ROOM = { halfX: 7, backZ: -6, frontZ: 6, wallH: 6 };
 const ITEM_COLORS = ['#ff9ed2', '#ffb46b', '#ffe066', '#8ee08e', '#7ad0ff', '#b79cff', '#ff8f8f', '#c8a2ff'];
+let furnitureIdCounter = 0;
+
+function newFurnitureItemId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  furnitureIdCounter += 1;
+  return 'f_' + Date.now().toString(36) + '_' + furnitureIdCounter.toString(36)
+    + '_' + Math.random().toString(36).slice(2, 10);
+}
 
 const GUEST_HELLOS = ['Knock knock! 🚪', 'Hello hello!', 'Thanks for inviting me! 💖'];
 const GUEST_CHATTER = [
@@ -259,7 +267,9 @@ export function makeInterior() {
   let tool = 'bed';
   let placementRotation = 0;
   let sleeping = false;
-  const items = []; // { group, kind, x, z, ry }
+  let furnitureSyncAdapter = null;
+  const sessionItemsByLocation = new Map();
+  const items = []; // { group, itemId, kind, color, x, z, ry }
   const guests = []; // invited mimimo friends wandering the room
   const raycaster = new THREE.Raycaster();
   const _dir = new THREE.Vector3();
@@ -317,20 +327,76 @@ export function makeInterior() {
     const base = 'mimimo.house.' + key;
     return floor === 1 ? base : base + '.floor' + floor;
   }
-  function addItem(kind, x, z, ry, save = true) {
-    const def = FURNITURE[kind];
-    if (!def) return;
-    const group = def.build(pick(ITEM_COLORS));
-    group.position.set(x, 0, z);
-    group.rotation.y = ry;
+
+  function getFurnitureLocationId() {
+    return 'house:' + houseKey + ':floor:' + currentFloor;
+  }
+
+  function normalizeFurnitureItem(raw, { generateId = false, generateColor = false } = {}) {
+    if (!raw || typeof raw !== 'object' || !FURNITURE[raw.kind]) return null;
+
+    let itemId = typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
+    if (!itemId && generateId) itemId = newFurnitureItemId();
+    if (!itemId) return null;
+
+    const requestedColor = typeof raw.color === 'string' ? raw.color.toLowerCase() : '';
+    let color = ITEM_COLORS.includes(requestedColor) ? requestedColor : '';
+    if (!color && generateColor) color = pick(ITEM_COLORS);
+    if (!color) return null;
+
+    let x = Number(raw.x);
+    let z = Number(raw.z);
+    let ry = Number(raw.ry);
+    if (![x, z, ry].every(Number.isFinite)) return null;
+    x = THREE.MathUtils.clamp(x, -ROOM.halfX + 0.6, ROOM.halfX - 0.6);
+    z = THREE.MathUtils.clamp(z, ROOM.backZ + 0.6, ROOM.frontZ - 0.4);
+    ry = THREE.MathUtils.euclideanModulo(ry, Math.PI * 2);
+
+    return {
+      itemId,
+      kind: raw.kind,
+      color,
+      x: +x.toFixed(2),
+      z: +z.toFixed(2),
+      ry: +ry.toFixed(2),
+    };
+  }
+
+  function serializeFurnitureItem(item) {
+    return {
+      itemId: item.itemId,
+      kind: item.kind,
+      color: item.color,
+      x: +item.x.toFixed(2),
+      z: +item.z.toFixed(2),
+      ry: +item.ry.toFixed(2),
+    };
+  }
+
+  function addRenderedItem(raw) {
+    const item = normalizeFurnitureItem(raw);
+    if (!item || items.some((existing) => existing.itemId === item.itemId)) return false;
+    const def = FURNITURE[item.kind];
+    const group = def.build(item.color);
+    group.position.set(item.x, 0, item.z);
+    group.rotation.y = item.ry;
     shadowify(group);
     scene.add(group);
-    items.push({ group, kind, x, z, ry });
-    if (save) persist();
+    items.push({ group, ...item });
+    return true;
+  }
+
+  function removeRenderedItem(itemId) {
+    const index = items.findIndex((item) => item.itemId === itemId);
+    if (index < 0) return false;
+    const [item] = items.splice(index, 1);
+    disposeMimimo(item.group);
+    return true;
   }
 
   function persist() {
-    const data = items.map((it) => ({ kind: it.kind, x: +it.x.toFixed(2), z: +it.z.toFixed(2), ry: +it.ry.toFixed(2) }));
+    if (furnitureSyncAdapter) return;
+    const data = items.map(serializeFurnitureItem);
     try { localStorage.setItem(saveKeyFor(houseKey), JSON.stringify(data)); } catch { /* ignore */ }
   }
 
@@ -341,9 +407,101 @@ export function makeInterior() {
 
   function loadItems() {
     clearItems();
-    let data = [];
-    try { data = JSON.parse(localStorage.getItem(saveKeyFor(houseKey))) || []; } catch { data = []; }
-    for (const d of data) addItem(d.kind, d.x, d.z, d.ry, false);
+
+    if (furnitureSyncAdapter) {
+      const sharedItems = sessionItemsByLocation.get(getFurnitureLocationId()) || [];
+      for (const item of sharedItems) addRenderedItem(item);
+      return;
+    }
+
+    let storedItems = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem(saveKeyFor(houseKey)));
+      if (Array.isArray(parsed)) storedItems = parsed;
+    } catch { /* use an empty room */ }
+
+    const seenIds = new Set();
+    for (const storedItem of storedItems) {
+      let item = normalizeFurnitureItem(storedItem, { generateId: true, generateColor: true });
+      if (!item) continue;
+      if (seenIds.has(item.itemId)) item = { ...item, itemId: newFurnitureItemId() };
+      seenIds.add(item.itemId);
+      addRenderedItem(item);
+    }
+
+    const migratedItems = items.map(serializeFurnitureItem);
+    if (JSON.stringify(storedItems) !== JSON.stringify(migratedItems)) persist();
+  }
+
+  function sendFurnitureRequest(method, payload) {
+    const handler = furnitureSyncAdapter?.[method];
+    if (typeof handler !== 'function') return false;
+    try {
+      return handler.call(furnitureSyncAdapter, payload) !== false;
+    } catch (error) {
+      console.warn('Unable to send multiplayer furniture request.', error);
+      return false;
+    }
+  }
+
+  /**
+   * Enable/reset session-owned furniture with request callbacks. Passing null
+   * leaves multiplayer mode and immediately restores the untouched local save.
+   */
+  function setFurnitureSyncAdapter(adapter = null) {
+    const nextAdapter = adapter && typeof adapter === 'object' ? adapter : null;
+    furnitureSyncAdapter = nextAdapter;
+    sessionItemsByLocation.clear();
+    loadItems();
+    return Boolean(furnitureSyncAdapter);
+  }
+
+  function loadFurnitureSnapshot(locationId, snapshot) {
+    if (!furnitureSyncAdapter || typeof locationId !== 'string' || !Array.isArray(snapshot)) return false;
+    const normalized = [];
+    const seenIds = new Set();
+    for (const raw of snapshot) {
+      const item = normalizeFurnitureItem(raw);
+      if (!item || seenIds.has(item.itemId)) continue;
+      seenIds.add(item.itemId);
+      normalized.push(item);
+    }
+    sessionItemsByLocation.set(locationId, normalized);
+    if (locationId === getFurnitureLocationId()) loadItems();
+    return true;
+  }
+
+  function applyFurnitureAdded(locationId, rawItem) {
+    if (!furnitureSyncAdapter || typeof locationId !== 'string') return false;
+    const item = normalizeFurnitureItem(rawItem);
+    if (!item) return false;
+    const snapshot = sessionItemsByLocation.get(locationId) || [];
+    if (snapshot.some((existing) => existing.itemId === item.itemId)) return false;
+    snapshot.push(item);
+    sessionItemsByLocation.set(locationId, snapshot);
+    if (locationId === getFurnitureLocationId()) addRenderedItem(item);
+    return true;
+  }
+
+  function applyFurnitureRemoved(locationId, itemId) {
+    if (!furnitureSyncAdapter || typeof locationId !== 'string' || typeof itemId !== 'string') return false;
+    const snapshot = sessionItemsByLocation.get(locationId) || [];
+    const nextSnapshot = snapshot.filter((item) => item.itemId !== itemId);
+    sessionItemsByLocation.set(locationId, nextSnapshot);
+    const removedFromSnapshot = nextSnapshot.length !== snapshot.length;
+    const removedFromScene = locationId === getFurnitureLocationId() && removeRenderedItem(itemId);
+    return removedFromSnapshot || removedFromScene;
+  }
+
+  function applyFurnitureCleared(locationId) {
+    if (!furnitureSyncAdapter || typeof locationId !== 'string') return false;
+    sessionItemsByLocation.set(locationId, []);
+    if (locationId === getFurnitureLocationId()) clearItems();
+    return true;
+  }
+
+  function getFurnitureSnapshot() {
+    return items.map(serializeFurnitureItem);
   }
 
   function resetPlayerForFloor() {
@@ -394,22 +552,56 @@ export function makeInterior() {
   }
 
   function undo() {
-    const it = items.pop();
-    if (it) { disposeMimimo(it.group); persist(); }
+    const item = items[items.length - 1];
+    if (!item) return false;
+
+    if (furnitureSyncAdapter) {
+      return sendFurnitureRequest('requestRemove', {
+        locationId: getFurnitureLocationId(),
+        itemId: item.itemId,
+      });
+    }
+
+    removeRenderedItem(item.itemId);
+    persist();
+    return true;
   }
 
-  function clearAll() { clearItems(); persist(); }
+  function clearAll() {
+    if (furnitureSyncAdapter) {
+      return sendFurnitureRequest('requestClear', { locationId: getFurnitureLocationId() });
+    }
+    clearItems();
+    persist();
+    return true;
+  }
 
   /** Tap on the floor (ndc in [-1,1]) to drop the current furniture. */
   function tapPlace(ndc, camera) {
     raycaster.setFromCamera(ndc, camera);
     const hit = raycaster.intersectObject(floorHit);
     if (!hit.length) return false;
-    let { x, z } = hit[0].point;
-    x = Math.max(-ROOM.halfX + 0.6, Math.min(ROOM.halfX - 0.6, x));
-    z = Math.max(ROOM.backZ + 0.6, Math.min(ROOM.frontZ - 0.4, z));
-    addItem(tool, x, z, placementRotation);
-    return true;
+    const { x, z } = hit[0].point;
+    const item = normalizeFurnitureItem({
+      itemId: newFurnitureItemId(),
+      kind: tool,
+      color: pick(ITEM_COLORS),
+      x,
+      z,
+      ry: placementRotation,
+    });
+    if (!item) return false;
+
+    if (furnitureSyncAdapter) {
+      return sendFurnitureRequest('requestAdd', {
+        locationId: getFurnitureLocationId(),
+        item: serializeFurnitureItem(item),
+      });
+    }
+
+    const added = addRenderedItem(item);
+    if (added) persist();
+    return added;
   }
 
   function getSleepStatus() {
@@ -519,6 +711,14 @@ export function makeInterior() {
     getTool,
     undo,
     clearAll,
+    setFurnitureSyncAdapter,
+    isFurnitureSyncActive: () => Boolean(furnitureSyncAdapter),
+    getFurnitureLocationId,
+    getFurnitureSnapshot,
+    loadFurnitureSnapshot,
+    applyFurnitureAdded,
+    applyFurnitureRemoved,
+    applyFurnitureCleared,
     rotatePlacement,
     getPlacementRotation,
     setFloor,

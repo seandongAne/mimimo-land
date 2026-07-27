@@ -396,6 +396,181 @@ html, body {
   #greetBtn { bottom: 118px; }
 }
 
+/* ---------------- multiplayer ---------------- */
+#multiplayerBtn {
+  top: 116px;
+  left: 18px;
+  padding: 8px 14px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e8f8ff, #cdbdff);
+  box-shadow: 3px 4px 0 rgba(74, 59, 92, 0.25);
+  color: var(--ink);
+  font: 700 0.92rem "Fredoka", sans-serif;
+}
+
+#multiplayerStatus {
+  top: 158px;
+  left: 18px;
+  max-width: min(250px, calc(100vw - 36px));
+  padding: 5px 10px;
+  overflow: hidden;
+  border: 2px solid rgba(74, 59, 92, 0.65);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#multiplayerStatus[data-state="connecting"] { background: #fff1b8; }
+#multiplayerStatus[data-state="online"] { background: #c8f5dc; }
+#multiplayerStatus[data-state="offline"] { background: #ffd5de; }
+
+#multiplayerPanel {
+  top: 18px;
+  right: 18px;
+  z-index: 25 !important;
+  width: min(390px, calc(100vw - 36px));
+  max-height: calc(100dvh - 36px);
+  padding: 18px;
+  overflow-y: auto;
+  border: 4px solid var(--ink);
+  border-radius: 24px;
+  background: rgba(255, 253, 248, 0.98);
+  box-shadow: 7px 8px 0 rgba(74, 59, 92, 0.28);
+  pointer-events: auto;
+}
+
+.multiplayer-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.multiplayer-heading h2 { margin: 0; font-size: 1.55rem; }
+.multiplayer-kicker {
+  margin: 0 0 2px;
+  color: #7b62a7;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+#multiplayerCloseBtn {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: #ffe1ec;
+  color: var(--ink);
+  font: 700 1.45rem/1 "Fredoka", sans-serif;
+}
+.multiplayer-connection {
+  margin: 13px 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #f0eaff;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.multiplayer-connection[data-state="connecting"] { background: #fff1b8; }
+.multiplayer-connection[data-state="online"] { background: #c8f5dc; }
+.multiplayer-connection[data-state="offline"] { background: #ffd5de; }
+.multiplayer-copy { margin: 0 0 12px; font-size: 0.88rem; line-height: 1.4; }
+#multiplayerPanel button,
+#multiplayerPanel input,
+#multiplayerPanel output { font-family: "Fredoka", sans-serif; }
+#multiplayerPanel button:disabled,
+#multiplayerPanel input:disabled { cursor: not-allowed; opacity: 0.55; }
+.multiplayer-primary,
+#multiplayerJoinBtn,
+#multiplayerLeaveBtn,
+.multiplayer-phrase {
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.multiplayer-primary {
+  width: 100%;
+  padding: 11px 14px;
+  background: linear-gradient(180deg, #ffe066, #ff9ed2);
+  box-shadow: 0 4px 0 var(--ink);
+}
+.multiplayer-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 15px 0;
+  color: #806e93;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.multiplayer-divider::before,
+.multiplayer-divider::after { content: ""; flex: 1; height: 2px; background: #dfd3eb; }
+#multiplayerJoinForm label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.multiplayer-join-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+#multiplayerCodeInput {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  outline: none;
+  background: #fff;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+#multiplayerCodeInput:focus { box-shadow: 0 0 0 4px rgba(190, 166, 255, 0.42); }
+#multiplayerJoinBtn { padding: 8px 16px; background: #c8f5dc; }
+.multiplayer-room-label { margin: 2px 0 5px; text-align: center; font-size: 0.82rem; font-weight: 700; }
+#multiplayerRoomCode {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 3px dashed #70598c;
+  border-radius: 15px;
+  background: #f0eaff;
+  color: var(--ink);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-align: center;
+  cursor: copy;
+}
+#multiplayerPlayerCount { margin: 8px 0 14px; text-align: center; font-size: 0.86rem; font-weight: 600; }
+#multiplayerPhrases {
+  margin: 0 0 12px;
+  padding: 11px;
+  border: 2.5px solid #cbbcdf;
+  border-radius: 16px;
+}
+#multiplayerPhrases legend { padding: 0 6px; font-size: 0.82rem; font-weight: 700; }
+.multiplayer-phrase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.multiplayer-phrase { min-height: 42px; padding: 7px; background: #fff4d8; font-size: 0.8rem; }
+#multiplayerLeaveBtn { width: 100%; padding: 9px; background: #ffe1ec; }
+.multiplayer-feedback {
+  min-height: 1.2em;
+  margin: 12px 2px 0;
+  color: #5f5170;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.multiplayer-feedback[data-state="error"] { color: #a12e50; }
+.multiplayer-feedback[data-state="ok"] { color: #23704b; }
+
 /* ---------------- enter-house prompt ---------------- */
 #enterPrompt {
   bottom: 116px;
@@ -793,6 +968,9 @@ body.clouding #powerTray { display: none !important; }
 }
 @media (pointer: coarse) {
   #joy { display: block; }
+  #multiplayerPanel { max-height: calc(100dvh - 170px); }
+  #multiplayerPanel button,
+  #multiplayerPanel input { min-height: 44px; }
   #homeBtn { bottom: 156px; }
   #hint { bottom: 156px; }
   body.building #buildBar,
@@ -808,6 +986,9 @@ body.clouding #powerTray { display: none !important; }
 @media (max-width: 600px) {
   #creator { padding: 2vh 3vw; }
   .panel { padding: 16px 18px; max-height: 62vh; }
+  #multiplayerBtn { top: 112px; left: 12px; }
+  #multiplayerStatus { top: 154px; left: 12px; max-width: calc(100vw - 24px); }
+  #multiplayerPanel { top: 12px; right: 12px; width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
   #hint { display: none; }
   #powerTray { left: 50%; right: auto; bottom: 195px; translate: -50% 0; gap: 4px; }
   #powerTray { width: min(92vw, 430px); max-width: 92vw; justify-content: center; }
@@ -823,4 +1004,8 @@ body.clouding #powerTray { display: none !important; }
   #underwaterBar { width: min(420px, 92vw); justify-content: space-between; font-size: 0.84rem; }
   #cloudBar { font-size: 0.8rem; gap: 7px; padding: 8px 10px; }
   #cloudExitBtn { padding: 7px 10px; font-size: 0.78rem; }
+}
+
+@media (max-width: 600px) and (pointer: coarse) {
+  #multiplayerPanel { max-height: calc(100dvh - 170px); }
 }

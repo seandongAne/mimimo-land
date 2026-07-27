@@ -61,6 +61,79 @@
     <div id="powerTray" aria-label="Selected powers"></div>
     <div id="joy"><div id="joyNub"></div></div>
 
+    <!-- temporary multiplayer sessions -->
+    <button
+      id="multiplayerBtn"
+      class="squishy"
+      type="button"
+      aria-expanded="false"
+      aria-controls="multiplayerPanel"
+    >&#128101; Multiplayer</button>
+    <div id="multiplayerStatus" role="status" aria-live="polite" data-state="solo">Solo play</div>
+
+    <section
+      id="multiplayerPanel"
+      class="hidden"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="multiplayerTitle"
+    >
+      <div class="multiplayer-heading">
+        <div>
+          <p class="multiplayer-kicker">Play together</p>
+          <h2 id="multiplayerTitle">Multiplayer</h2>
+        </div>
+        <button id="multiplayerCloseBtn" class="squishy" type="button" aria-label="Close multiplayer panel">&times;</button>
+      </div>
+
+      <p id="multiplayerConnection" class="multiplayer-connection" data-state="solo">Start a room or join a friend.</p>
+
+      <div id="multiplayerSetup">
+        <p class="multiplayer-copy">Rooms are private, temporary, and hold up to five mimimos.</p>
+        <button id="multiplayerCreateBtn" class="squishy multiplayer-primary" type="button">&#10024; Create a room</button>
+
+        <div class="multiplayer-divider" aria-hidden="true"><span>or</span></div>
+
+        <form id="multiplayerJoinForm" novalidate>
+          <label for="multiplayerCodeInput">Enter a friend's room code</label>
+          <div class="multiplayer-join-row">
+            <input
+              id="multiplayerCodeInput"
+              type="text"
+              maxlength="6"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              placeholder="ABC234"
+              aria-describedby="multiplayerFeedback"
+            />
+            <button id="multiplayerJoinBtn" class="squishy" type="submit">Join</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="multiplayerRoom" class="hidden">
+        <p class="multiplayer-room-label">Share this room code</p>
+        <output id="multiplayerRoomCode" aria-label="Current multiplayer room code">------</output>
+        <p id="multiplayerPlayerCount">1 of 5 mimimos here</p>
+
+        <fieldset id="multiplayerPhrases">
+          <legend>Say something</legend>
+          <div class="multiplayer-phrase-grid">
+            <button class="squishy multiplayer-phrase" type="button" data-phrase-id="hello">Hi! &#128075;</button>
+            <button class="squishy multiplayer-phrase" type="button" data-phrase-id="lets-play">Let's play! &#10024;</button>
+            <button class="squishy multiplayer-phrase" type="button" data-phrase-id="follow-me">Follow me! &#127752;</button>
+            <button class="squishy multiplayer-phrase" type="button" data-phrase-id="great-job">Great job! &#128150;</button>
+          </div>
+        </fieldset>
+
+        <button id="multiplayerLeaveBtn" class="squishy" type="button">Leave room</button>
+      </div>
+
+      <p id="multiplayerFeedback" class="multiplayer-feedback" role="alert" aria-live="assertive"></p>
+    </section>
+
     <button id="enterPrompt" class="squishy hidden"></button>
 
     <!-- dream-house customizer (shown before building on an empty lot) -->
