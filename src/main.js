@@ -18,6 +18,7 @@ import { Magic, POWERS } from './magic.js';
 import { initInput, getMove } from './input.js';
 import { colliders, toon } from './utils.js';
 import { createMultiplayerClient } from './multiplayer.js';
+import { bindMultiplayerFurnitureEvents } from './multiplayer-furniture.js';
 import { createMultiplayerUI } from './multiplayer-ui.js';
 import { createRemotePlayers } from './remote-players.js';
 
@@ -1365,15 +1366,7 @@ multiplayer.on('player:joined', (player) => remotePlayers.upsertPlayer(player));
 multiplayer.on('player:updated', ({ player }) => remotePlayers.upsertPlayer(player));
 multiplayer.on('player:left', ({ playerId }) => remotePlayers.removePlayer(playerId));
 multiplayer.on('player:action', (event) => remotePlayers.handleAction(event));
-multiplayer.on('furniture:added', ({ locationId, item }) => {
-  interior.applyFurnitureAdded(locationId, item);
-});
-multiplayer.on('furniture:removed', ({ locationId, itemId }) => {
-  interior.applyFurnitureRemoved(locationId, itemId);
-});
-multiplayer.on('furniture:cleared', ({ locationId }) => {
-  interior.applyFurnitureCleared(locationId);
-});
+bindMultiplayerFurnitureEvents(multiplayer, interior, updateSleepButton);
 multiplayer.on('left', clearMultiplayerSession);
 multiplayer.on('error', ({ code }) => {
   if (TERMINAL_SESSION_ERRORS.has(code)) clearMultiplayerSession();

@@ -6,6 +6,10 @@ const PLAYER_ID_KEY = 'mimimo.multiplayer.playerId.v1';
 const SESSION_CODE_KEY = 'mimimo.multiplayer.sessionCode.v1';
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 
+export function isMultiplayerConnecting(socket, error = null) {
+  return Boolean(socket?.active && !socket?.connected && !error);
+}
+
 function makeId(prefix = 'player') {
   if (globalThis.crypto?.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
@@ -87,7 +91,7 @@ export function createMultiplayerClient({
     return {
       available: Boolean(url),
       connected: socket.connected,
-      connecting: socket.active && !socket.connected,
+      connecting: isMultiplayerConnecting(socket, lastError),
       joined,
       playerId,
       sessionCode,
@@ -158,6 +162,7 @@ export function createMultiplayerClient({
   }
 
   socket.on('connect', () => {
+    lastError = null;
     announceState();
     sendIntent();
   });
