@@ -14,6 +14,10 @@ npm run dev
 
 Then open the printed URL (defaults to http://localhost:5173).
 
+Choose **MIMIMO Lab · 奇想实验室** from the character creator, or open
+http://localhost:5173/lab/ directly, for the bilingual learning experience.
+The Lab is designed for a child and adult learning together on a laptop.
+
 **Controls**
 
 | Action        | Desktop            | Touch                |
@@ -40,6 +44,11 @@ be sipped and toys can be played with again and again.
   🧚, choose a **body shape** (classic or round), one of **20 candy colors**,
   multiple powers and a name (or roll the 🎲). Saved in the browser for next
   time. Ducky, fairy, dragon and phoenix mimimos really fly.
+- **MIMIMO Lab / 奇想实验室** — a separate Chinese/English interactive space
+  for short, hands-on AI literacy and AI application experiments. The first
+  experiment compares repeatable rule-based answers with varied AI samples,
+  asks the learner to check both, then turns the evidence and decision into a
+  Feature Passport.
 - **A whole candy land** —
   - **Village** of eight animal-shaped houses (bunny, kitty, froggy, puppy,
     bear, ducky, foxy, piggy) that you can walk into.
@@ -79,8 +88,10 @@ be sipped and toys can be played with again and again.
 
 ```
 index.html        UI shell: character creator + in-game/build HUD
+lab/index.html    Bilingual MIMIMO Lab page (built as a separate Vite entry)
 src/style.css     Candy-sticker UI styling
 src/main.js       Bootstrap, game states, interactions, camera and main loop
+src/lab/          Lab interactions, translations, experiment data and progress
 src/world.js      Animated day/night sky, sun, moon, stars, ground and lights
 src/clouds.js     Cotton-candy clouds
 src/trees.js      Purple trees + the forest grove

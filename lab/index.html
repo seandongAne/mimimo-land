@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="MIMIMO Lab — a bilingual, parent-and-child AI learning lab."
+    />
+    <title>MIMIMO Lab</title>
+    <link rel="stylesheet" href="../src/lab/lab.css" />
+  </head>
+  <body>
+    <div id="labApp" class="lab-shell">
+      <section class="lab-stage" aria-label="MIMIMO Lab">
+        <div class="scene" aria-hidden="true"></div>
+
+        <header class="lab-header">
+          <a id="backLink" class="back-link" href="../"></a>
+          <img class="lab-brand" src="./assets/mimimo-lab-logo.png" alt="MIMIMO Lab" />
+          <div class="header-actions">
+            <div class="language-switch" role="group" aria-label="Language / 语言">
+              <button type="button" data-language="zh">中文</button>
+              <button type="button" data-language="en">English</button>
+            </div>
+            <button id="resetButton" class="reset-button" type="button"></button>
+          </div>
+        </header>
+
+        <nav id="progressNav" class="progress-nav" aria-label="Lab progress"></nav>
+
+        <main id="labMain" class="lab-main" tabindex="-1"></main>
+
+        <aside id="coachBar" class="coach-bar" aria-live="polite"></aside>
+        <div id="statusMessage" class="sr-only" role="status" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <dialog id="resultDetailDialog" class="portal-detail-dialog" aria-labelledby="resultDetailTitle">
+      <div id="resultDetailContent"></div>
+    </dialog>
+
+    <dialog
+      id="resetDialog"
+      class="lab-dialog reset-dialog"
+      aria-labelledby="resetTitle"
+      aria-describedby="resetDescription"
+    >
+      <form method="dialog">
+        <p class="dialog-kicker" id="resetKicker"></p>
+        <h2 id="resetTitle"></h2>
+        <p id="resetDescription"></p>
+        <div class="dialog-actions">
+          <button id="cancelReset" class="secondary-button" value="cancel"></button>
+          <button id="confirmReset" class="danger-button" value="confirm"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="passportDialog" class="lab-dialog passport-dialog" aria-labelledby="passportDialogTitle">
+      <div id="passportContent"></div>
+    </dialog>
+
+    <script type="module" src="../src/lab/lab.js"></script>
+  </body>
+</html>

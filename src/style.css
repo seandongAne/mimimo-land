@@ -227,6 +227,47 @@ html, body {
 }
 #startBtn:active { box-shadow: 0 2px 0 var(--ink); translate: 0 4px; }
 
+.creator-lab-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #e5f8ff 0%, #e9ddff 58%, #ffd9eb 100%);
+  box-shadow: 0 4px 0 var(--ink);
+  color: var(--ink);
+  text-decoration: none;
+}
+.creator-lab-link:active {
+  box-shadow: 0 1px 0 var(--ink);
+  translate: 0 3px;
+}
+.creator-lab-link:focus-visible {
+  outline: 4px solid var(--sun);
+  outline-offset: 3px;
+}
+.creator-lab-logo {
+  flex: 0 0 64px;
+  width: 64px;
+  height: auto;
+}
+.creator-lab-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.creator-lab-copy strong { font-size: 1rem; }
+.creator-lab-copy small {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.76;
+}
 /* ---------------- HUD ---------------- */
 #hud > * { position: fixed; z-index: 5; }
 
