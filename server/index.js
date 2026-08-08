@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import http from 'node:http';
@@ -9,8 +9,14 @@ import {
   CLEANUP_INTERVAL_MS,
   CLIENT_EVENTS,
   EMPTY_SESSION_TTL_MS,
+  MAGIC_COMBO_COOLDOWN_MS,
+  MAGIC_COMBO_RECIPES,
+  MAGIC_COMBO_WINDOW_MS,
   MAX_FURNITURE_PER_LOCATION,
+  MAX_MAGIC_COMBO_COOLDOWNS,
   MAX_PLAYERS,
+  MAX_RECENT_MAGIC_CASTS,
+  MAX_SESSIONS,
   PROTOCOL_VERSION,
   ProtocolError,
   RATE_LIMITS,
@@ -36,14 +42,19 @@ const DEFAULT_ORIGIN_PATTERNS = [
 
 function parseAllowedOrigins(env) {
   const raw = env.ALLOWED_ORIGINS || env.CLIENT_ORIGIN || '';
-  return new Set(raw.split(',').map((origin) => origin.trim()).filter(Boolean));
+  const allowed = new Set(raw.split(',').map((origin) => origin.trim()).filter(Boolean));
+  return {
+    allowed,
+    configured: allowed.size > 0,
+  };
 }
 
 export function createOriginChecker(env = process.env) {
-  const allowed = parseAllowedOrigins(env);
+  const { allowed, configured } = parseAllowedOrigins(env);
   return (origin) => {
     if (!origin) return true;
     if (allowed.has('*') || allowed.has(origin)) return true;
+    if (configured) return false;
     return DEFAULT_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin));
   };
 }
@@ -100,6 +111,8 @@ function makeSession(now) {
     emptySince: null,
     players: new Map(),
     furnitureByLocation: new Map(),
+    recentMagicCasts: [],
+    magicComboCooldowns: new Map(),
   };
 }
 
@@ -192,19 +205,75 @@ export function createMultiplayerServer(options = {}) {
     session.emptySince = activePlayerCount(session) === 0 ? (session.emptySince ?? now()) : null;
   }
 
+  function cleanupMagicState(session, currentTime = now()) {
+    const castCutoff = currentTime - MAGIC_COMBO_WINDOW_MS;
+    session.recentMagicCasts = session.recentMagicCasts.filter((cast) => cast.at >= castCutoff);
+    for (const [key, triggeredAt] of session.magicComboCooldowns) {
+      if (currentTime - triggeredAt >= MAGIC_COMBO_COOLDOWN_MS) {
+        session.magicComboCooldowns.delete(key);
+      }
+    }
+  }
+
+  function trimMagicState(session) {
+    const extraCasts = session.recentMagicCasts.length - MAX_RECENT_MAGIC_CASTS;
+    if (extraCasts > 0) session.recentMagicCasts.splice(0, extraCasts);
+    while (session.magicComboCooldowns.size > MAX_MAGIC_COMBO_COOLDOWNS) {
+      session.magicComboCooldowns.delete(session.magicComboCooldowns.keys().next().value);
+    }
+  }
+
   function cleanupExpiredSessions() {
-    const cutoff = now() - emptySessionTtlMs;
+    const currentTime = now();
+    const cutoff = currentTime - emptySessionTtlMs;
     for (const [sessionCode, session] of sessions) {
       if (session.emptySince !== null && session.emptySince <= cutoff) {
         sessions.delete(sessionCode);
         continue;
       }
+      cleanupMagicState(session, currentTime);
       for (const [playerId, player] of session.players) {
         if (player.socketId === null && player.disconnectedAt !== null && player.disconnectedAt <= cutoff) {
           session.players.delete(playerId);
         }
       }
     }
+  }
+
+  function oldestEmptySessionCode() {
+    let oldestCode = null;
+    let oldestEmptySince = Infinity;
+    for (const [sessionCode, session] of sessions) {
+      if (activePlayerCount(session) !== 0) continue;
+      const emptySince = session.emptySince ?? session.createdAt;
+      if (emptySince < oldestEmptySince) {
+        oldestCode = sessionCode;
+        oldestEmptySince = emptySince;
+      }
+    }
+    return oldestCode;
+  }
+
+  function reclaimOldestEmptySession() {
+    const sessionCode = oldestEmptySessionCode();
+    return sessionCode === null ? false : sessions.delete(sessionCode);
+  }
+
+  function ensureSessionCapacity(socket) {
+    cleanupExpiredSessions();
+    if (sessions.size < MAX_SESSIONS || reclaimOldestEmptySession()) return;
+
+    const currentSession = sessions.get(socket.data.sessionCode);
+    const currentPlayer = currentSession?.players.get(socket.data.playerId);
+    if (currentPlayer?.socketId === socket.id && activePlayerCount(currentSession) === 1) {
+      removeCurrentPlayer(socket);
+      if (reclaimOldestEmptySession()) return;
+    }
+
+    throw new ProtocolError(
+      'SESSION_LIMIT',
+      'Two rooms are already in use. Please join one with its room code or try again later',
+    );
   }
 
   const cleanupTimer = setInterval(cleanupExpiredSessions, cleanupIntervalMs);
@@ -262,13 +331,26 @@ export function createMultiplayerServer(options = {}) {
     oldSocket.disconnect(true);
   }
 
+  function evictOldestDisconnectedPlayer(session) {
+    let oldest = null;
+    for (const player of session.players.values()) {
+      if (player.socketId !== null || player.disconnectedAt === null) continue;
+      if (oldest === null || player.disconnectedAt < oldest.disconnectedAt) oldest = player;
+    }
+    return oldest === null ? false : session.players.delete(oldest.playerId);
+  }
+
   async function attachPlayer(socket, sessionCode, playerId, profile) {
     const session = sessions.get(sessionCode);
     if (!session) throw new ProtocolError('SESSION_NOT_FOUND', 'That room no longer exists');
 
     const existing = session.players.get(playerId);
-    if (!existing && session.players.size >= MAX_PLAYERS) {
-      throw new ProtocolError('SESSION_FULL', `This room already has ${MAX_PLAYERS} players`);
+    if (!existing) {
+      while (session.players.size >= MAX_PLAYERS) {
+        if (!evictOldestDisconnectedPlayer(session)) {
+          throw new ProtocolError('SESSION_FULL', `This room already has ${MAX_PLAYERS} players`);
+        }
+      }
     }
 
     const sameMembership = socket.data.sessionCode === sessionCode && socket.data.playerId === playerId;
@@ -320,6 +402,87 @@ export function createMultiplayerServer(options = {}) {
     return normalized;
   }
 
+  function findMagicPartner(session, cast, partnerPower) {
+    for (let index = session.recentMagicCasts.length - 1; index >= 0; index -= 1) {
+      const candidate = session.recentMagicCasts[index];
+      if (
+        candidate !== cast
+        && candidate.locationId === cast.locationId
+        && candidate.power === partnerPower
+        && candidate.playerId !== cast.playerId
+      ) {
+        const player = session.players.get(candidate.playerId);
+        if (player?.socketId && player.pose.locationId === cast.locationId) return candidate;
+      }
+    }
+    return null;
+  }
+
+  function recordMagicCast(sessionCode, session, player, action) {
+    if (action.actionId !== 'magic') return null;
+
+    const currentTime = now();
+    cleanupMagicState(session, currentTime);
+    const recipes = Object.entries(MAGIC_COMBO_RECIPES).filter(([, powers]) => (
+      powers.includes(action.payload.power)
+    ));
+    if (recipes.length === 0 || recipes.every(([type]) => (
+      session.magicComboCooldowns.has(JSON.stringify([action.locationId, type]))
+    ))) return null;
+
+    const cast = {
+      at: currentTime,
+      playerId: player.playerId,
+      name: player.profile.name,
+      locationId: action.locationId,
+      power: action.payload.power,
+      position: { ...action.payload.position },
+    };
+    session.recentMagicCasts.push(cast);
+    trimMagicState(session);
+
+    for (const [type, powers] of recipes) {
+      const cooldownKey = JSON.stringify([cast.locationId, type]);
+      if (session.magicComboCooldowns.has(cooldownKey)) continue;
+      const partnerPower = powers.find((power) => power !== cast.power);
+      const partner = findMagicPartner(session, cast, partnerPower);
+      if (!partner) continue;
+
+      const castByPower = new Map([
+        [cast.power, cast],
+        [partner.power, partner],
+      ]);
+      const combo = {
+        protocolVersion: PROTOCOL_VERSION,
+        comboId: `combo-${randomUUID()}`,
+        type,
+        locationId: cast.locationId,
+        position: {
+          x: (cast.position.x + partner.position.x) / 2,
+          y: (cast.position.y + partner.position.y) / 2,
+          z: (cast.position.z + partner.position.z) / 2,
+        },
+        contributors: powers.map((power) => {
+          const contribution = castByPower.get(power);
+          return {
+            playerId: contribution.playerId,
+            name: session.players.get(contribution.playerId)?.profile.name || contribution.name,
+          };
+        }),
+        powers: [...powers],
+      };
+
+      session.recentMagicCasts = session.recentMagicCasts.filter(
+        (candidate) => candidate !== cast && candidate !== partner,
+      );
+      session.magicComboCooldowns.set(cooldownKey, currentTime);
+      trimMagicState(session);
+      io.to(locationRoomName(sessionCode, cast.locationId)).emit('magic:combo', combo);
+      return combo;
+    }
+    return null;
+  }
+
   function consumeRateLimit(socket, event) {
     const config = RATE_LIMITS[event];
     if (!config) return;
@@ -362,6 +525,7 @@ export function createMultiplayerServer(options = {}) {
     register(socket, 'session:create', async (payload, ack) => {
       const playerId = validatePlayerId(payload.playerId);
       const profile = validateProfile(payload.profile);
+      ensureSessionCapacity(socket);
       removeCurrentPlayer(socket);
       const sessionCode = generateSessionCode();
       sessions.set(sessionCode, makeSession(now()));
@@ -420,7 +584,7 @@ export function createMultiplayerServer(options = {}) {
     });
 
     register(socket, 'player:action', (payload, ack) => {
-      const { sessionCode, player } = ownedPlayer(socket);
+      const { sessionCode, session, player } = ownedPlayer(socket);
       const action = validateAction(payload);
       if (action.locationId !== player.pose.locationId) {
         throw new ProtocolError('LOCATION_MISMATCH', 'Actions must use the player current location');
@@ -430,7 +594,8 @@ export function createMultiplayerServer(options = {}) {
         playerId: player.playerId,
         ...action,
       });
-      success(ack);
+      const combo = recordMagicCast(sessionCode, session, player, action);
+      success(ack, combo ? { comboId: combo.comboId } : {});
     });
 
     register(socket, 'furniture:add', (payload, ack) => {

@@ -10,6 +10,10 @@ export function isMultiplayerConnecting(socket, error = null) {
   return Boolean(socket?.active && !socket?.connected && !error);
 }
 
+export function isMultiplayerBusy(socket, error = null, requestInFlight = false) {
+  return Boolean(requestInFlight || isMultiplayerConnecting(socket, error));
+}
+
 function makeId(prefix = 'player') {
   if (globalThis.crypto?.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
@@ -61,6 +65,7 @@ export function createMultiplayerClient({
   let furnitureByLocation = new Map();
   let sessionCode = normaliseCode(sessionStorage.getItem(SESSION_CODE_KEY));
   let pendingIntent = sessionCode ? { type: 'join', sessionCode } : null;
+  let requestInFlight = false;
   let joined = false;
   let lastError = null;
   let lastPose = null;
@@ -88,10 +93,13 @@ export function createMultiplayerClient({
   }
 
   function state() {
+    const connecting = isMultiplayerConnecting(socket, lastError);
     return {
       available: Boolean(url),
       connected: socket.connected,
-      connecting: isMultiplayerConnecting(socket, lastError),
+      connecting,
+      requestInFlight,
+      busy: isMultiplayerBusy(socket, lastError, requestInFlight),
       joined,
       playerId,
       sessionCode,
@@ -114,15 +122,19 @@ export function createMultiplayerClient({
   }
 
   function connectFor(intent) {
+    if (requestInFlight) return false;
     lastError = null;
     pendingIntent = intent;
+    requestInFlight = true;
     announceState();
     if (socket.connected) sendIntent();
     else if (!socket.active) socket.connect();
+    return true;
   }
 
   function sendIntent() {
-    if (!socket.connected || !pendingIntent) return;
+    if (!socket.connected || !pendingIntent) return false;
+    requestInFlight = true;
     if (pendingIntent.type === 'create') {
       socket.emit('session:create', packet({ playerId, profile: profile() }));
     } else {
@@ -132,6 +144,7 @@ export function createMultiplayerClient({
         profile: profile(),
       }));
     }
+    return true;
   }
 
   function acceptSnapshot(payload, eventName) {
@@ -140,6 +153,7 @@ export function createMultiplayerClient({
     if (!CODE_PATTERN.test(sessionCode)) return;
     sessionStorage.setItem(SESSION_CODE_KEY, sessionCode);
     pendingIntent = { type: 'join', sessionCode };
+    requestInFlight = false;
     joined = true;
     lastError = null;
     players.clear();
@@ -163,15 +177,17 @@ export function createMultiplayerClient({
 
   socket.on('connect', () => {
     lastError = null;
-    announceState();
     sendIntent();
+    announceState();
   });
   socket.on('disconnect', (reason) => {
+    requestInFlight = false;
     joined = false;
     emitLocal('disconnect', { reason, willReconnect: Boolean(sessionCode) });
     announceState();
   });
   socket.on('connect_error', (error) => {
+    requestInFlight = false;
     lastError = { code: 'CONNECTION_FAILED', message: error?.message || 'Multiplayer service is offline.' };
     emitLocal('error', lastError);
     announceState();
@@ -179,6 +195,7 @@ export function createMultiplayerClient({
   socket.on('session:created', (payload) => acceptSnapshot(payload, 'session:created'));
   socket.on('session:joined', (payload) => acceptSnapshot(payload, 'session:joined'));
   socket.on('session:error', (error = {}) => {
+    requestInFlight = false;
     lastError = {
       code: String(error.code || 'SESSION_ERROR'),
       message: String(error.message || 'Unable to join this room.'),
@@ -221,6 +238,9 @@ export function createMultiplayerClient({
   socket.on('player:action', (payload = {}) => {
     if (payload.playerId !== playerId) emitLocal('player:action', payload);
   });
+  socket.on('magic:combo', (payload = {}) => {
+    if (payload.protocolVersion === PROTOCOL_VERSION) emitLocal('magic:combo', payload);
+  });
   socket.on('furniture:added', (payload = {}) => {
     if (!payload.locationId || !payload.item) return;
     const items = furnitureByLocation.get(payload.locationId) || [];
@@ -243,10 +263,11 @@ export function createMultiplayerClient({
   });
 
   function createSession() {
-    connectFor({ type: 'create' });
+    return connectFor({ type: 'create' });
   }
 
   function joinSession(code) {
+    if (requestInFlight) return false;
     const clean = normaliseCode(code);
     if (!CODE_PATTERN.test(clean)) {
       lastError = { code: 'INVALID_SESSION_CODE', message: 'Room codes have 6 letters or numbers.' };
@@ -255,8 +276,7 @@ export function createMultiplayerClient({
       return false;
     }
     sessionCode = clean;
-    connectFor({ type: 'join', sessionCode: clean });
-    return true;
+    return connectFor({ type: 'join', sessionCode: clean });
   }
 
   function leaveSession() {
@@ -264,6 +284,7 @@ export function createMultiplayerClient({
     sessionStorage.removeItem(SESSION_CODE_KEY);
     sessionCode = '';
     pendingIntent = null;
+    requestInFlight = false;
     joined = false;
     players.clear();
     furnitureByLocation.clear();

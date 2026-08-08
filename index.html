@@ -118,6 +118,12 @@
         <output id="multiplayerRoomCode" aria-label="Current multiplayer room code">------</output>
         <p id="multiplayerPlayerCount">1 of 5 mimimos here</p>
 
+        <section class="multiplayer-friends-section" aria-labelledby="multiplayerFriendsTitle">
+          <h3 id="multiplayerFriendsTitle">Friends in this room</h3>
+          <p id="multiplayerFriendsEmpty" class="multiplayer-friends-empty">Waiting for a friend to join...</p>
+          <ul id="multiplayerFriends" class="multiplayer-friends" aria-live="polite"></ul>
+        </section>
+
         <fieldset id="multiplayerPhrases">
           <legend>Say something</legend>
           <div class="multiplayer-phrase-grid">
@@ -128,11 +134,50 @@
           </div>
         </fieldset>
 
+        <section class="multiplayer-magic-guide" aria-labelledby="multiplayerMagicTitle">
+          <h3 id="multiplayerMagicTitle">Make friend magic</h3>
+          <p>In the same place, cast both powers within 8 seconds.</p>
+          <ul>
+            <li aria-label="Water plus Bloom: Rainbow Garden"><span aria-hidden="true">&#128167; + &#127800;</span><strong>Rainbow Garden</strong></li>
+            <li aria-label="Cloud plus Rainbow: Sky Bridge"><span aria-hidden="true">&#9729;&#65039; + &#127752;</span><strong>Sky Bridge</strong></li>
+            <li aria-label="Hearts plus Bubbles: Friendship Fountain"><span aria-hidden="true">&#128150; + &#129767;</span><strong>Friendship Fountain</strong></li>
+          </ul>
+        </section>
+
+        <button id="multiplayerPhotoBtn" class="squishy" type="button">&#128248; Group photo</button>
         <button id="multiplayerLeaveBtn" class="squishy" type="button">Leave room</button>
       </div>
 
       <p id="multiplayerFeedback" class="multiplayer-feedback" role="alert" aria-live="assertive"></p>
     </section>
+
+    <div id="friendCompass" class="hidden" role="group" aria-label="Friend tracker">
+      <span id="friendCompassArrow" aria-hidden="true">&#8593;</span>
+      <span class="friend-compass-copy">
+        <strong id="friendCompassName"></strong>
+        <span id="friendCompassDetail"></span>
+      </span>
+    </div>
+
+    <div id="photoCountdown" class="hidden" role="status" aria-live="assertive"></div>
+
+    <div id="magicComboToast" class="hidden" role="status" aria-live="polite"></div>
+
+    <div
+      id="photoPreview"
+      class="hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="photoPreviewTitle"
+    >
+      <div class="photo-preview-card">
+        <button id="photoPreviewCloseBtn" class="squishy" type="button" aria-label="Close photo preview">&times;</button>
+        <h2 id="photoPreviewTitle">Friends forever! &#10024;</h2>
+        <img id="photoPreviewImage" alt="Your MIMIMO group photo" />
+        <p class="photo-mobile-hint">On a phone or tablet, press and hold the picture to save it.</p>
+        <a id="photoDownloadLink" class="squishy" href="#" download="mimimo-friends.png">Download photo</a>
+      </div>
+    </div>
 
     <button id="enterPrompt" class="squishy hidden"></button>
 

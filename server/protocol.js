@@ -1,9 +1,14 @@
 export const PROTOCOL_VERSION = 1;
 
+export const MAX_SESSIONS = 2;
 export const MAX_PLAYERS = 5;
 export const MAX_FURNITURE_PER_LOCATION = 200;
+export const MAX_RECENT_MAGIC_CASTS = 64;
+export const MAX_MAGIC_COMBO_COOLDOWNS = 32;
 export const EMPTY_SESSION_TTL_MS = 5 * 60 * 1000;
 export const CLEANUP_INTERVAL_MS = 30 * 1000;
+export const MAGIC_COMBO_WINDOW_MS = 8 * 1000;
+export const MAGIC_COMBO_COOLDOWN_MS = 8 * 1000;
 
 export const SESSION_CODE_LENGTH = 6;
 export const SESSION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -47,6 +52,12 @@ export const MAGIC_POWERS = Object.freeze([
   'cloud',
   'leaves',
 ]);
+
+export const MAGIC_COMBO_RECIPES = Object.freeze({
+  'rainbow-garden': Object.freeze(['water', 'blossom']),
+  'sky-bridge': Object.freeze(['cloud', 'rainbow']),
+  'friendship-fountain': Object.freeze(['hearts', 'bubbles']),
+});
 
 export const FURNITURE_KINDS = Object.freeze([
   'bed',
@@ -92,6 +103,7 @@ export const SERVER_EVENTS = Object.freeze([
   'player:updated',
   'player:left',
   'player:action',
+  'magic:combo',
   'furniture:added',
   'furniture:removed',
   'furniture:cleared',

@@ -2,8 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { io as createClient } from 'socket.io-client';
 
-import { createMultiplayerServer } from '../index.js';
-import { MAX_PLAYERS, PROTOCOL_VERSION } from '../protocol.js';
+import { createMultiplayerServer, createOriginChecker } from '../index.js';
+import {
+  MAGIC_COMBO_COOLDOWN_MS,
+  MAGIC_COMBO_RECIPES,
+  MAGIC_COMBO_WINDOW_MS,
+  MAX_PLAYERS,
+  MAX_SESSIONS,
+  PROTOCOL_VERSION,
+} from '../protocol.js';
 
 const PROFILE = Object.freeze({
   name: 'Mimimo',
@@ -14,6 +21,19 @@ const PROFILE = Object.freeze({
 
 function payload(fields = {}) {
   return { protocolVersion: PROTOCOL_VERSION, ...fields };
+}
+
+function magicAction(power, {
+  locationId = 'world',
+  x = 0,
+  y = 0,
+  z = 0,
+} = {}) {
+  return payload({
+    actionId: 'magic',
+    locationId,
+    payload: { power, position: { x, y, z } },
+  });
 }
 
 function waitForEvent(socket, event, timeoutMs = 1_500) {
@@ -102,6 +122,24 @@ async function joinSession(socket, sessionCode, playerId, profile = PROFILE) {
   return response;
 }
 
+test('explicit origin configuration replaces the permissive local and GitHub defaults', () => {
+  const defaults = createOriginChecker({});
+  assert.equal(defaults('https://another-project.github.io'), true);
+  assert.equal(defaults('http://localhost:5173'), true);
+  assert.equal(createOriginChecker({ ALLOWED_ORIGINS: '' })('http://localhost:5173'), true);
+
+  const configured = createOriginChecker({
+    ALLOWED_ORIGINS: 'https://mimimo.example, https://friends.example',
+  });
+  assert.equal(configured(undefined), true);
+  assert.equal(configured('https://mimimo.example'), true);
+  assert.equal(configured('https://another-project.github.io'), false);
+  assert.equal(configured('http://localhost:5173'), false);
+
+  const wildcard = createOriginChecker({ CLIENT_ORIGIN: '*' });
+  assert.equal(wildcard('https://another-project.github.io'), true);
+});
+
 test('health check and session:create return a complete versioned snapshot', async (t) => {
   const harness = await makeHarness();
   t.after(() => harness.close());
@@ -164,6 +202,57 @@ test('join enforces five players and explicit leave removes and broadcasts the p
   assert.equal(leaveAck.ok, true);
   assert.equal((await left).playerId, `player_${MAX_PLAYERS - 1}`);
   assert.equal(harness.service.sessions.get(sessionCode).players.size, MAX_PLAYERS - 1);
+});
+
+test('a new player takes the oldest disconnected slot while stable playerIds can reconnect', async (t) => {
+  let clock = 10_000;
+  const harness = await makeHarness({ now: () => clock });
+  t.after(() => harness.close());
+
+  const owner = await harness.client();
+  const { sessionCode } = await createSession(owner);
+  const players = [owner];
+  for (let index = 1; index < MAX_PLAYERS; index += 1) {
+    const client = await harness.client();
+    await joinSession(client, sessionCode, `player_${index}`);
+    players.push(client);
+  }
+
+  await emitAck(players[2], 'player:pose', payload({
+    seq: 4,
+    locationId: 'cloudland',
+    x: 2,
+    y: 3,
+    z: 4,
+    rotation: 0.5,
+    moving: false,
+    flying: true,
+  }));
+
+  const firstLeft = waitForEvent(owner, 'player:left');
+  clock = 11_000;
+  players[1].disconnect();
+  assert.equal((await firstLeft).playerId, 'player_1');
+
+  const secondLeft = waitForEvent(owner, 'player:left');
+  clock = 12_000;
+  players[2].disconnect();
+  assert.equal((await secondLeft).playerId, 'player_2');
+
+  const newcomer = await harness.client();
+  const newcomerSnapshot = await joinSession(newcomer, sessionCode, 'player_new');
+  const storedPlayers = harness.service.sessions.get(sessionCode).players;
+  assert.equal(storedPlayers.size, MAX_PLAYERS);
+  assert.equal(storedPlayers.has('player_1'), false);
+  assert.equal(storedPlayers.has('player_2'), true);
+  assert.equal(newcomerSnapshot.players.some((player) => player.playerId === 'player_new'), true);
+
+  const reconnect = await harness.client();
+  const reconnectSnapshot = await joinSession(reconnect, sessionCode, 'player_2');
+  const restored = reconnectSnapshot.players.find((player) => player.playerId === 'player_2');
+  assert.equal(restored.pose.seq, 4);
+  assert.equal(restored.pose.locationId, 'cloudland');
+  assert.equal(storedPlayers.size, MAX_PLAYERS);
 });
 
 test('stable playerId replaces an old socket and retains pose across reconnects', async (t) => {
@@ -274,6 +363,154 @@ test('actions are enum-validated, rate-limited, and only sent to the same locati
     if (!result.ok) rateLimited = result;
   }
   assert.equal(rateLimited?.error.code, 'RATE_LIMITED');
+});
+
+test('two players can trigger every cooperative magic recipe for everyone in their location', async (t) => {
+  const harness = await makeHarness();
+  t.after(() => harness.close());
+
+  const owner = await harness.client();
+  const { sessionCode } = await createSession(owner);
+  const peer = await harness.client();
+  const observer = await harness.client();
+  const farAway = await harness.client();
+  await joinSession(peer, sessionCode, 'player_peer', { ...PROFILE, name: 'Pip' });
+  await joinSession(observer, sessionCode, 'player_observer', { ...PROFILE, name: 'Lumi' });
+  await joinSession(farAway, sessionCode, 'player_far', { ...PROFILE, name: 'Nova' });
+  await emitAck(farAway, 'player:pose', payload({
+    seq: 1,
+    locationId: 'underwater',
+    x: 0,
+    y: 0,
+    z: 0,
+    rotation: 0,
+    moving: false,
+    flying: false,
+  }));
+
+  const ownerCombo = waitForEvent(owner, 'magic:combo');
+  const peerCombo = waitForEvent(peer, 'magic:combo');
+  const observerCombo = waitForEvent(observer, 'magic:combo');
+  const farAwayCombo = expectNoEvent(farAway, 'magic:combo');
+  await emitAck(owner, 'player:action', magicAction('water', { x: 2, y: 4, z: 6 }));
+  const comboAck = await emitAck(
+    peer,
+    'player:action',
+    magicAction('blossom', { x: 6, y: 8, z: 10 }),
+  );
+  const combos = await Promise.all([ownerCombo, peerCombo, observerCombo]);
+  await farAwayCombo;
+
+  assert.equal(comboAck.ok, true);
+  assert.equal(comboAck.comboId, combos[0].comboId);
+  assert.deepEqual(combos[1], combos[0]);
+  assert.deepEqual(combos[2], combos[0]);
+  assert.equal(combos[0].protocolVersion, PROTOCOL_VERSION);
+  assert.match(combos[0].comboId, /^combo-[0-9a-f-]+$/i);
+  assert.equal(combos[0].type, 'rainbow-garden');
+  assert.equal(combos[0].locationId, 'world');
+  assert.deepEqual(combos[0].position, { x: 4, y: 6, z: 8 });
+  assert.deepEqual(combos[0].contributors, [
+    { playerId: 'player_owner', name: 'Mimimo' },
+    { playerId: 'player_peer', name: 'Pip' },
+  ]);
+  assert.deepEqual(combos[0].powers, ['water', 'blossom']);
+
+  for (const type of ['sky-bridge', 'friendship-fountain']) {
+    const [firstPower, secondPower] = MAGIC_COMBO_RECIPES[type];
+    const received = waitForEvent(owner, 'magic:combo');
+    await emitAck(owner, 'player:action', magicAction(firstPower));
+    await emitAck(peer, 'player:action', magicAction(secondPower));
+    const combo = await received;
+    assert.equal(combo.type, type);
+    assert.deepEqual(combo.powers, [firstPower, secondPower]);
+  }
+});
+
+test('one player cannot trigger a cooperative magic recipe alone', async (t) => {
+  const harness = await makeHarness();
+  t.after(() => harness.close());
+
+  const owner = await harness.client();
+  await createSession(owner);
+  const noCombo = expectNoEvent(owner, 'magic:combo');
+  await emitAck(owner, 'player:action', magicAction('water'));
+  await emitAck(owner, 'player:action', magicAction('blossom'));
+  await noCombo;
+});
+
+test('matching magic powers cast in different locations do not combine', async (t) => {
+  const harness = await makeHarness();
+  t.after(() => harness.close());
+
+  const owner = await harness.client();
+  const { sessionCode } = await createSession(owner);
+  const peer = await harness.client();
+  await joinSession(peer, sessionCode, 'player_peer');
+  await emitAck(peer, 'player:pose', payload({
+    seq: 1,
+    locationId: 'underwater',
+    x: 0,
+    y: 0,
+    z: 0,
+    rotation: 0,
+    moving: false,
+    flying: false,
+  }));
+
+  const ownerNoCombo = expectNoEvent(owner, 'magic:combo');
+  const peerNoCombo = expectNoEvent(peer, 'magic:combo');
+  await emitAck(owner, 'player:action', magicAction('water'));
+  await emitAck(peer, 'player:action', magicAction('blossom', { locationId: 'underwater' }));
+  await Promise.all([ownerNoCombo, peerNoCombo]);
+});
+
+test('a location and recipe stay on cooldown after a cooperative magic trigger', async (t) => {
+  let clock = 10_000;
+  const harness = await makeHarness({ now: () => clock });
+  t.after(() => harness.close());
+
+  const owner = await harness.client();
+  const { sessionCode } = await createSession(owner);
+  const peer = await harness.client();
+  await joinSession(peer, sessionCode, 'player_peer');
+
+  const firstCombo = waitForEvent(owner, 'magic:combo');
+  await emitAck(owner, 'player:action', magicAction('water'));
+  await emitAck(peer, 'player:action', magicAction('blossom'));
+  await firstCombo;
+
+  clock += 1;
+  const noRepeatedCombo = expectNoEvent(owner, 'magic:combo');
+  const firstRepeat = await emitAck(owner, 'player:action', magicAction('water'));
+  const secondRepeat = await emitAck(peer, 'player:action', magicAction('blossom'));
+  assert.equal(firstRepeat.comboId, undefined);
+  assert.equal(secondRepeat.comboId, undefined);
+  await noRepeatedCombo;
+  assert.equal(harness.service.sessions.get(sessionCode).magicComboCooldowns.size, 1);
+
+  clock += MAGIC_COMBO_COOLDOWN_MS;
+  const afterCooldown = waitForEvent(owner, 'magic:combo');
+  await emitAck(owner, 'player:action', magicAction('water'));
+  await emitAck(peer, 'player:action', magicAction('blossom'));
+  assert.equal((await afterCooldown).type, 'rainbow-garden');
+});
+
+test('magic casts older than the cooperation window are forgotten', async (t) => {
+  let clock = 10_000;
+  const harness = await makeHarness({ now: () => clock });
+  t.after(() => harness.close());
+
+  const owner = await harness.client();
+  const { sessionCode } = await createSession(owner);
+  const peer = await harness.client();
+  await joinSession(peer, sessionCode, 'player_peer');
+
+  await emitAck(owner, 'player:action', magicAction('water'));
+  clock += MAGIC_COMBO_WINDOW_MS + 1;
+  const noCombo = expectNoEvent(owner, 'magic:combo');
+  await emitAck(peer, 'player:action', magicAction('blossom'));
+  await noCombo;
 });
 
 test('furniture operations are house-scoped, idempotent, and included in late-join snapshots', async (t) => {
@@ -406,6 +643,45 @@ test('empty sessions are removed after the configured five-minute-style grace pe
   harness.service.cleanupExpiredSessions();
   assert.equal(harness.service.sessions.has(sessionCode), true);
   clock += 1;
-  harness.service.cleanupExpiredSessions();
+  const replacement = await createSession(owner, 'player_returned');
   assert.equal(harness.service.sessions.has(sessionCode), false);
+  assert.equal(harness.service.sessions.has(replacement.sessionCode), true);
+  assert.equal(harness.service.sessions.size, 1);
+});
+
+test('session creation is capped and recycles the oldest empty room first', async (t) => {
+  let clock = 10_000;
+  const harness = await makeHarness({
+    now: () => clock,
+    emptySessionTtlMs: 300_000,
+  });
+  t.after(() => harness.close());
+
+  const firstOwner = await harness.client();
+  const first = await createSession(firstOwner, 'player_first');
+  clock = 11_000;
+  const secondOwner = await harness.client();
+  const second = await createSession(secondOwner, 'player_second');
+  assert.equal(harness.service.sessions.size, MAX_SESSIONS);
+
+  const blockedOwner = await harness.client();
+  const blocked = await emitAck(blockedOwner, 'session:create', payload({
+    playerId: 'player_blocked',
+    profile: PROFILE,
+  }));
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.error.code, 'SESSION_LIMIT');
+  assert.equal(harness.service.sessions.size, MAX_SESSIONS);
+
+  clock = 12_000;
+  await emitAck(firstOwner, 'session:leave', payload());
+  clock = 13_000;
+  await emitAck(secondOwner, 'session:leave', payload());
+
+  clock = 14_000;
+  const replacement = await createSession(blockedOwner, 'player_replacement');
+  assert.equal(harness.service.sessions.size, MAX_SESSIONS);
+  assert.equal(harness.service.sessions.has(first.sessionCode), false);
+  assert.equal(harness.service.sessions.has(second.sessionCode), true);
+  assert.equal(harness.service.sessions.has(replacement.sessionCode), true);
 });

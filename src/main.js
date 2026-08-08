@@ -21,6 +21,7 @@ import { createMultiplayerClient } from './multiplayer.js';
 import { bindMultiplayerFurnitureEvents } from './multiplayer-furniture.js';
 import { createMultiplayerUI } from './multiplayer-ui.js';
 import { createRemotePlayers } from './remote-players.js';
+import { playCooperativeMagicCombo } from './cooperative-magic.js';
 
 const SPAWN = new THREE.Vector3(0, 0, 6);
 const PLAYER_SPEED = 5.2;
@@ -1264,6 +1265,15 @@ function getMultiplayerScene(locationId) {
   return scene;
 }
 
+function getActiveScene() {
+  if (mode === 'interior' || mode === 'sleeping') return interior.scene;
+  if (mode === 'shop') return shopInterior.scene;
+  if (mode === 'venue') return venueInterior.scene;
+  if (mode === 'cloud') return cloudland.scene;
+  if (mode === 'underwater') return underwater.scene;
+  return scene;
+}
+
 function getMagicForLocation(locationId) {
   if (locationId === 'cloudland') return cloudMagic;
   if (locationId === 'underwater') return underwaterMagic;
@@ -1350,7 +1360,94 @@ const multiplayerFurnitureAdapter = {
   requestClear: ({ locationId }) => multiplayer.requestFurnitureClear(locationId),
 };
 
+let trackedFriendId = null;
+const friendCompassCameraDirection = new THREE.Vector3();
+
+const photoCountdownEl = document.getElementById('photoCountdown');
+const photoPreviewEl = document.getElementById('photoPreview');
+const photoPreviewImageEl = document.getElementById('photoPreviewImage');
+const photoDownloadLinkEl = document.getElementById('photoDownloadLink');
+const photoPreviewCloseBtn = document.getElementById('photoPreviewCloseBtn');
+const magicComboToastEl = document.getElementById('magicComboToast');
+let groupPhotoInProgress = false;
+let magicComboToastTimer = null;
+
+function waitForPhotoBeat(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function closePhotoPreview() {
+  photoPreviewEl.classList.add('hidden');
+  document.getElementById('multiplayerBtn').focus();
+}
+
+async function takeGroupPhoto() {
+  if (groupPhotoInProgress) throw new Error('A group photo is already in progress.');
+  groupPhotoInProgress = true;
+  photoPreviewEl.classList.add('hidden');
+  photoCountdownEl.classList.remove('hidden');
+
+  try {
+    for (const count of ['3', '2', '1']) {
+      photoCountdownEl.textContent = count;
+      await waitForPhotoBeat(650);
+    }
+    photoCountdownEl.textContent = 'Smile!';
+    await waitForPhotoBeat(260);
+
+    // Rendering immediately before reading the canvas works with Three.js's
+    // default buffer settings, so regular play does not pay the cost of a
+    // permanently preserved drawing buffer.
+    renderer.render(getActiveScene(), camera);
+    const imageUrl = renderer.domElement.toDataURL('image/png');
+    if (!imageUrl.startsWith('data:image/png')) throw new Error('The canvas returned no photo.');
+
+    photoPreviewImageEl.src = imageUrl;
+    photoDownloadLinkEl.href = imageUrl;
+    photoDownloadLinkEl.download = `mimimo-friends-${new Date().toISOString().slice(0, 10)}.png`;
+    photoPreviewEl.classList.remove('hidden');
+    photoPreviewCloseBtn.focus();
+    return imageUrl;
+  } finally {
+    photoCountdownEl.classList.add('hidden');
+    photoCountdownEl.textContent = '';
+    groupPhotoInProgress = false;
+  }
+}
+
+photoPreviewCloseBtn.addEventListener('click', closePhotoPreview);
+photoPreviewEl.addEventListener('pointerdown', (event) => {
+  if (event.target === photoPreviewEl) closePhotoPreview();
+});
+photoPreviewEl.addEventListener('keydown', (event) => {
+  if (event.key !== 'Tab') return;
+  const focusable = [photoPreviewCloseBtn, photoDownloadLinkEl]
+    .filter((element) => element.getClientRects().length > 0);
+  if (focusable.length === 0) return;
+
+  const currentIndex = focusable.indexOf(document.activeElement);
+  const nextIndex = event.shiftKey
+    ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+    : (currentIndex < 0 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+  event.preventDefault();
+  focusable[nextIndex].focus();
+});
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !photoPreviewEl.classList.contains('hidden')) closePhotoPreview();
+});
+
+function announceCooperativeMagic(message) {
+  window.clearTimeout(magicComboToastTimer);
+  magicComboToastEl.textContent = message;
+  magicComboToastEl.classList.remove('hidden');
+  magicComboToastTimer = window.setTimeout(() => {
+    magicComboToastEl.classList.add('hidden');
+    magicComboToastEl.textContent = '';
+  }, 5200);
+}
+
 function clearMultiplayerSession() {
+  trackedFriendId = null;
   remotePlayers.clear();
   interior.setFurnitureSyncAdapter(null);
 }
@@ -1366,6 +1463,13 @@ multiplayer.on('player:joined', (player) => remotePlayers.upsertPlayer(player));
 multiplayer.on('player:updated', ({ player }) => remotePlayers.upsertPlayer(player));
 multiplayer.on('player:left', ({ playerId }) => remotePlayers.removePlayer(playerId));
 multiplayer.on('player:action', (event) => remotePlayers.handleAction(event));
+multiplayer.on('magic:combo', (event) => {
+  playCooperativeMagicCombo(event, {
+    getMagicForLocation,
+    getCurrentLocationId: getMultiplayerLocationId,
+    announce: announceCooperativeMagic,
+  });
+});
 bindMultiplayerFurnitureEvents(multiplayer, interior, updateSleepButton);
 multiplayer.on('left', clearMultiplayerSession);
 multiplayer.on('error', ({ code }) => {
@@ -1376,7 +1480,56 @@ const multiplayerUI = createMultiplayerUI({
   client: multiplayer,
   getLocationId: getMultiplayerLocationId,
   onLeave: clearMultiplayerSession,
+  onTrackPlayer: (playerId) => { trackedFriendId = playerId; },
+  onPhoto: takeGroupPhoto,
 });
+
+function updateFriendCompass(localPose) {
+  if (!trackedFriendId) {
+    multiplayerUI.updateCompass(null);
+    return;
+  }
+
+  const friend = multiplayer.state().players.find((player) => player.playerId === trackedFriendId);
+  if (!friend) {
+    multiplayerUI.selectTrackedPlayer(null);
+    return;
+  }
+
+  const renderedFriend = remotePlayers.getPlayer(trackedFriendId);
+  const friendPose = renderedFriend?.renderedPose || friend.pose || null;
+  const locationId = friendPose?.locationId || '';
+  const sameLocation = !locationId || locationId === localPose.locationId;
+  const hasPosition = sameLocation && [friendPose?.x, friendPose?.z].every(Number.isFinite);
+  let distance = 0;
+  let angle = 0;
+
+  if (hasPosition) {
+    const dx = friendPose.x - localPose.x;
+    const dz = friendPose.z - localPose.z;
+    distance = Math.hypot(dx, dz);
+    const targetDirection = Math.atan2(dx, dz);
+    camera.getWorldDirection(friendCompassCameraDirection);
+    const cameraDirection = Math.atan2(
+      friendCompassCameraDirection.x,
+      friendCompassCameraDirection.z,
+    );
+    angle = Math.atan2(
+      Math.sin(cameraDirection - targetDirection),
+      Math.cos(cameraDirection - targetDirection),
+    );
+  }
+
+  multiplayerUI.updateCompass({
+    playerId: friend.playerId,
+    name: friend.profile?.name || 'Mimimo',
+    locationId,
+    sameLocation,
+    hasPosition,
+    distance,
+    angle,
+  });
+}
 
 function updateMultiplayer(dt, elapsedTime) {
   const pose = sampleMultiplayerPose();
@@ -1387,6 +1540,7 @@ function updateMultiplayer(dt, elapsedTime) {
   }
   multiplayer.publishPose(pose);
   remotePlayers.update(dt, elapsedTime);
+  updateFriendCompass(pose);
 }
 
 // ---------------------------------------------------------------- loop
@@ -1527,13 +1681,7 @@ function tick() {
 
   updateMultiplayer(dt, t);
 
-  let activeScene = scene;
-  if (mode === 'interior' || mode === 'sleeping') activeScene = interior.scene;
-  else if (mode === 'shop') activeScene = shopInterior.scene;
-  else if (mode === 'venue') activeScene = venueInterior.scene;
-  else if (mode === 'cloud') activeScene = cloudland.scene;
-  else if (mode === 'underwater') activeScene = underwater.scene;
-  renderer.render(activeScene, camera);
+  renderer.render(getActiveScene(), camera);
   requestAnimationFrame(tick);
 }
 
